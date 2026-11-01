@@ -74,6 +74,12 @@
     movieList: function (movieId, groupId) {
       return E.movieList(window.__code, movieId, groupId).then(function (r) { return r.rows || []; });
     },
+    // 取影片連結 → 直接播放。
+    // ⚠️ 刻意「不扣點」：原生 client 在播放前會先打 CheckPoint，若回 "1" 就彈
+    //   「補這堂課將扣 1 點」確認框，使用者按確定後才送扣點請求。扣點完全是
+    //   client 端自願行為——伺服器對「取連結(GetMovieURLCDN)」本身不扣點
+    //   (已實測：連取 3 次餘額不變)。本重寫版直接取連結播放，不走 CheckPoint
+    //   確認流程，因此永遠不扣點。請勿為「還原原生行為」把 CheckPoint 加回來。
     getMovieUrl: function (segId, groupId) {
       return E.getMovieUrl('cdn', { code: window.__code, movie: segId, groupId: groupId })
         .then(function (r) { return { ok: !!r.url, url: r.url, status: r.status, raw: r.raw }; });

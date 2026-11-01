@@ -102,6 +102,11 @@
     movieList: function (movieId, groupId) {
       return client.movieList(movieId, groupId).then(function (r) { return parse.splitRows(r.body); });
     },
+    // 取影片連結 → 直接播放。
+    // ⚠️ 刻意「不扣點」：原生 client 播放前先打 CheckPoint，回 "1" 就彈「將扣 1 點」
+    //   確認框，按確定才送扣點請求。扣點是 client 端自願行為，伺服器對取連結本身
+    //   不扣點(已實測連取 3 次餘額不變)。本版直接取連結播放，不走 CheckPoint 確認，
+    //   因此永遠不扣點。勿為還原原生行為把 CheckPoint 加回。
     getMovieUrl: function (segId, groupId) {
       return client.getMovieUrlCDN({ movie: segId, groupId: groupId }).then(function (r) {
         var url = parse.extractMovieUrl(r.body);
