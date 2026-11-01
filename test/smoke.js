@@ -17,15 +17,19 @@ const qs = EclassClient.qs([['A', '1'], ['B', 'x y'], ['C', null], ['D', '中']]
 ok('qs skips null + encodes', qs === 'A=1&B=x%20y&D=%E4%B8%AD');
 
 console.log('[smoke] URL builders produce correct paths');
-const c = new EclassClient({ host: 'h.test', https: true });
+const c = new EclassClient({ host: 'h.test', https: true, code: 'C' });
+c.auth = { stuSN: 'S1', stuPass: 'P', macId: 'AA-BB' };
 c._get = (p) => Promise.resolve({ status: 200, body: 'GET ' + p });
 (async () => {
-  ok('classList1 path', (await c.classList1('CODE')).body === 'GET /ClassList1.aspx?Code=CODE');
-  ok('movieList path',
-     (await c.movieList('C', '9', '3')).body === 'GET /MovieList.aspx?Code=C&MovieID=9&ClassID=3');
-  const mv = await c.getMovieUrlS3({ key2: 'k2', key: 'k', movie: 'm', code: 'C', groupId: 'g' });
-  ok('getMovieUrlS3 order (Key2,Key,Movie,Code,GroupID)',
-     mv.body === 'GET /GetMovieURLS3.aspx?Key2=k2&Key=k&Movie=m&Code=C&GroupID=g');
+  ok('classList1 carries Code+auth',
+     (await c.classList1()).body === 'GET /ClassList1.aspx?Code=C&StuSN=S1&StuPass=P&MacID=AA-BB');
+  ok('classList2 carries ClassID',
+     (await c.classList2('239')).body === 'GET /ClassList2.aspx?Code=C&ClassID=239&StuSN=S1&StuPass=P&MacID=AA-BB');
+  ok('movieList order (Code,MovieID,ClassID)',
+     (await c.movieList('1648', '239')).body === 'GET /MovieList.aspx?Code=C&MovieID=1648&ClassID=239&StuSN=S1&StuPass=P&MacID=AA-BB');
+  const mv = await c.getMovieUrlCDN({ key2: 'k2', key: 'k', movie: '4463', groupId: '239' });
+  ok('getMovieUrlCDN order (Key2,Key,Movie,Code,GroupID)',
+     mv.body === 'GET /GetMovieURLCDN.aspx?Key2=k2&Key=k&Movie=4463&Code=C&GroupID=239&StuSN=S1&StuPass=P&MacID=AA-BB');
 
   console.log('[smoke] keysign deterministic + swappable');
   const f = { code: 'C', stuSN: 'S1', stuPass: 'P', macId: 'AA-BB', computerName: 'PC' };

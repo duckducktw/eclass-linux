@@ -69,38 +69,35 @@ ipcMain.handle('api:checkMac', async (_e, p) => {
   if (!client) throw new Error('not connected');
   const r = await client.checkMac(p);
   const parsed = parse.parseCheckMac(r.body);
-  // 嘗試把回應當成 Code(session) 存起來；實際欄位需抓包確認
   if (parsed.ok) {
-    const code = p.code; // 多數部署登入後沿用同一 Code 當 session
-    client.code = code;
-    store.set('code', code);
+    store.set('code', p.code);
     store.set('stuSN', p.stuSN);
   }
   return { status: r.status, parsed, raw: r.body };
 });
 
-ipcMain.handle('api:classList1', async (_e, code) => {
-  const r = await client.classList1(code);
+ipcMain.handle('api:classList1', async () => {
+  const r = await client.classList1();
   return { status: r.status, ...parse.parseList(r.body) };
 });
-ipcMain.handle('api:classList2', async (_e, code) => {
-  const r = await client.classList2(code);
+ipcMain.handle('api:classList2', async (_e, classId) => {
+  const r = await client.classList2(classId);
   return { status: r.status, ...parse.parseList(r.body) };
 });
-ipcMain.handle('api:movieList', async (_e, { code, movieId, classId }) => {
-  const r = await client.movieList(code, movieId, classId);
+ipcMain.handle('api:movieList', async (_e, { movieId, classId }) => {
+  const r = await client.movieList(movieId, classId);
   return { status: r.status, ...parse.parseList(r.body) };
 });
-ipcMain.handle('api:getClassWeekNote', async (_e, { code, weekId }) => {
-  const r = await client.getClassWeekNote(code, weekId);
+ipcMain.handle('api:getClassWeekNote', async (_e, weekId) => {
+  const r = await client.getClassWeekNote(weekId);
   return { status: r.status, ...parse.parseList(r.body) };
 });
-ipcMain.handle('api:getClassPoint', async (_e, code) => {
-  const r = await client.getClassPoint(code);
-  return { status: r.status, ...parse.parseList(r.body) };
+ipcMain.handle('api:getClassPoint', async () => {
+  const r = await client.getClassPoint();
+  return { status: r.status, raw: r.body };
 });
-ipcMain.handle('api:checkPoint', async (_e, code) => {
-  const r = await client.checkPoint(code);
+ipcMain.handle('api:checkPoint', async (_e, { movieId, classId }) => {
+  const r = await client.checkPoint(movieId, classId);
   return { status: r.status, raw: r.body };
 });
 

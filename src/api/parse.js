@@ -23,14 +23,21 @@ function extractMovieUrl(body) {
   return m ? m[0] : null;
 }
 
-/** CheckMac 回應：判斷登入是否成功。不同部署回法不一，做寬鬆判斷 + 回傳原文。 */
+/** CheckMac 回應碼 (實測於 makeup.jlweb.com.tw):
+ *   "1"  = 登入成功 (此 MAC 已綁定本帳號)
+ *   "2"  = 機器不符 (帳號已綁定其他 MAC；換機需補習班後台解綁)
+ *   "-1" = 帳號或密碼錯誤
+ *   其他 HTML = 伺服器端執行階段錯誤 (參數缺漏等)
+ */
 function parseCheckMac(body) {
   const text = String(body).trim();
-  const ok =
-    /^(1|ok|true|success)/i.test(text) ||
-    /登入成功|驗證成功/.test(text);
-  const denied = /Access Denied|fail|error|錯誤|失敗/i.test(text);
-  return { ok: ok && !denied, raw: text };
+  const codeMap = {
+    '1': { ok: true, code: 'OK', msg: '登入成功' },
+    '2': { ok: false, code: 'MACHINE_MISMATCH', msg: '機器不符，帳號已綁定其他裝置' },
+    '-1': { ok: false, code: 'BAD_CREDENTIALS', msg: '帳號或密碼錯誤' },
+  };
+  if (codeMap[text]) return { ...codeMap[text], raw: text };
+  return { ok: false, code: 'UNKNOWN', msg: '未知回應', raw: text };
 }
 
 /** 通用列表解析（班級/影片/週次），回傳二維陣列 + 原文供偵錯 */

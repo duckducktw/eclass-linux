@@ -30,8 +30,21 @@ class EclassClient {
     this.host = opts.host;
     this.https = opts.https !== false;
     this.version = opts.version || '1.3.4';
-    this.code = null; // session token, 由 CheckMac/StuLogin 成功後取得
+    this.code = opts.code || null; // 補習班代碼 (如 0102)，多數端點必帶
     this.timeout = opts.timeout || 15000;
+    // 實測發現：資料端點普遍需要帶「身分三件組」(StuSN+StuPass+MacID)，
+    // 伺服器不發 session cookie，靠每次請求帶帳密驗證。登入成功後存起來重用。
+    this.auth = null; // { stuSN, stuPass, macId }
+  }
+
+  /** 帶身分的 query 片段 (資料端點都要) */
+  _authQs() {
+    if (!this.auth) return '';
+    return EclassClient.qs([
+      ['StuSN', this.auth.stuSN],
+      ['StuPass', this.auth.stuPass],
+      ['MacID', this.auth.macId],
+    ]);
   }
 
   _base() {
@@ -102,6 +115,12 @@ class EclassClient {
       ['key', key],
     ]);
     const r = await this._get(`/CheckMac.aspx?${qs}`);
+    // 實測：成功回 "1"，帳密錯回 "-1"。key 目前伺服器未驗(空 key 也回 1)，
+    // 但保留 key 計算以相容其他部署。成功後存 auth 供資料端點重用。
+    if (String(r.body).trim() === '1') {
+      this.auth = { stuSN: p.stuSN, stuPass: p.stuPass, macId: p.macId };
+      this.code = p.code;
+    }
     return r;
   }
 
@@ -134,45 +153,76 @@ class EclassClient {
   }
 
   // ---------------------------------------------------------------------------
-  // 2. 班級 / 週次 / 影片列表
-  // ---------------------------------------------------------------------------
-  /** ClassList1.aspx?Code= */
-  classList1(code) {
-    return this._get(`/ClassList1.aspx?Code=${encodeURIComponent(code)}`);
-  }
-
-  /** ClassList2.aspx?Code= */
-  classList2(code) {
-    return this._get(`/ClassList2.aspx?Code=${encodeURIComponent(code)}`);
-  }
-
-  /** MovieList.aspx?Code=&MovieID=&ClassID= */
-  movieList(code, movieId, classId) {
-    return this._get(
-      `/MovieList.aspx?${EclassClient.qs([
-        ['Code', code],
-        ['MovieID', movieId],
-        ['ClassID', classId],
-      ])}`
-    );
-  }
-
-  /** GetClassWeekNote.aspx?Code=&WeekID= */
-  getClassWeekNote(code, weekId) {
-    return this._get(
-      `/GetClassWeekNote.aspx?${EclassClient.qs([
-        ['Code', code],
-        ['WeekID', weekId],
-      ])}`
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // 3. 影片串流 URL (防盜鏈)
+  // 2. 科目 / 班級 / 影片列表  (全部需帶身分三件組; 實測於 makeup.jlweb.com.tw)
   // ---------------------------------------------------------------------------
   /**
-   * GetMovieURLS3.aspx?Key2=&Key=&Movie=&Code=&GroupID=
-   * 回傳帶 ?expire=&token= 的影片連結 (hicloud S3)
+   * ClassList1.aspx — 回「科目清單」。
+   * 回應格式(實測): `ClassID;?;,科目名<br/>`  例: `239;256;,竹115秋高一英文EEC班黃(二)`
+   * 需帶 Code + StuSN + StuPass + MacID，否則回空。
+   */
+  classList1() {
+    return this._get(
+      `/ClassList1.aspx?Code=${encodeURIComponent(this.code)}&${this._authQs()}`
+    );
+  }
+
+  /**
+   * ClassList2.aspx — 回某科目下的「單元/堂數清單」。
+   * 需帶 ClassID(來自 ClassList1)。
+   * 回應格式(實測): `單元名,ClassID,MovieID,段數<br/>`
+   *   例: `第一課L1,239,1648,4`  → 該課 MovieID=1648，共 4 段
+   * @param {string|number} classId
+   */
+  classList2(classId) {
+    return this._get(
+      `/ClassList2.aspx?${EclassClient.qs([
+        ['Code', this.code],
+        ['ClassID', classId],
+      ])}&${this._authQs()}`
+    );
+  }
+
+  /**
+   * MovieList.aspx — 回某單元的「分段清單」。
+   * 需帶 MovieID(來自 ClassList2) + ClassID。
+   * 回應格式(實測): `段序,段ID,可看<br/>`  例: `1,4463,True`
+   * @param {string|number} movieId  ClassList2 給的 MovieID (如 1648)
+   * @param {string|number} classId
+   */
+  movieList(movieId, classId) {
+    return this._get(
+      `/MovieList.aspx?${EclassClient.qs([
+        ['Code', this.code],
+        ['MovieID', movieId],
+        ['ClassID', classId],
+      ])}&${this._authQs()}`
+    );
+  }
+
+  /**
+   * GetClassWeekNote.aspx — 週次講義 (此部署回「找不到資源」，可能未啟用)。
+   * @param {string|number} weekId
+   */
+  getClassWeekNote(weekId) {
+    return this._get(
+      `/GetClassWeekNote.aspx?${EclassClient.qs([
+        ['Code', this.code],
+        ['WeekID', weekId],
+      ])}&${this._authQs()}`
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 3. 影片串流 URL (防盜鏈) — ⚠️ Key/Key2 驗證未破解
+  // ---------------------------------------------------------------------------
+  /**
+   * GetMovieURLS3.aspx — hicloud S3 版。此部署對缺參回「執行階段錯誤」。
+   * GetMovieURLCDN.aspx — hinet CDN 版。實測回應碼:
+   *   空 Key/Key2  → "-2" (缺 Key)
+   *   亂填 Key     → "-3" (Key 錯)
+   *   正確         → http://...?expire=&token= (帶時效簽章)
+   * ⚠️ Key/Key2 的正確值無法從 exe 靜態還原，需抓一次原程式播放封包 (見 README)。
+   * @param {object} p { key2, key, movie(段ID,來自MovieList), groupId }
    */
   getMovieUrlS3(p) {
     return this._get(
@@ -180,36 +230,43 @@ class EclassClient {
         ['Key2', p.key2],
         ['Key', p.key],
         ['Movie', p.movie],
-        ['Code', p.code],
+        ['Code', this.code],
         ['GroupID', p.groupId],
-      ])}`
+      ])}&${this._authQs()}`
     );
   }
 
-  /** GetMovieURLCDN.aspx?... (hinet CDN 版本) */
   getMovieUrlCDN(p) {
     return this._get(
       `/GetMovieURLCDN.aspx?${EclassClient.qs([
         ['Key2', p.key2],
         ['Key', p.key],
         ['Movie', p.movie],
-        ['Code', p.code],
+        ['Code', this.code],
         ['GroupID', p.groupId],
-      ])}`
+      ])}&${this._authQs()}`
     );
   }
 
   // ---------------------------------------------------------------------------
-  // 4. 點數 / 進度
+  // 4. 點數 / 進度  (實測回單一數字)
   // ---------------------------------------------------------------------------
-  /** GetClassPoint.aspx?Code= */
-  getClassPoint(code) {
-    return this._get(`/GetClassPoint.aspx?Code=${encodeURIComponent(code)}`);
+  /** GetClassPoint.aspx — 回點數 (實測回 "0")。需帶身分。 */
+  getClassPoint() {
+    return this._get(
+      `/GetClassPoint.aspx?Code=${encodeURIComponent(this.code)}&${this._authQs()}`
+    );
   }
 
-  /** CheckPoint.aspx?Code= */
-  checkPoint(code) {
-    return this._get(`/CheckPoint.aspx?Code=${encodeURIComponent(code)}`);
+  /** CheckPoint.aspx — 檢查某段是否可看/扣點 (實測帶 MovieID 回 "1")。 */
+  checkPoint(movieId, classId) {
+    return this._get(
+      `/CheckPoint.aspx?${EclassClient.qs([
+        ['Code', this.code],
+        ['MovieID', movieId],
+        ['ClassID', classId],
+      ])}&${this._authQs()}`
+    );
   }
 }
 
