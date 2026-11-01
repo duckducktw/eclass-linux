@@ -16,6 +16,10 @@ app.commandLine.appendSwitch('no-sandbox');
 app.commandLine.appendSwitch('disable-setuid-sandbox');
 app.commandLine.appendSwitch('disable-gpu-sandbox');
 
+// 工作列/選單圖示對應：Electron 視窗的 WM_CLASS 取自 app 名稱。
+// 設成 'eClass' 以對上 .desktop 的 StartupWMClass，否則工作列會顯示 Electron 預設圖示。
+app.setName('eClass');
+
 const path = require('path');
 const Store = require('electron-store');
 
@@ -34,7 +38,8 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1100,
     height: 760,
-    title: 'eClass Linux',
+    title: 'eClass',
+    icon: path.join(__dirname, '..', 'assets', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

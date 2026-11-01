@@ -41,9 +41,15 @@
         "tar.gz"
       ],
       "category": "AudioVideo",
+      "icon": "build/icons",
+      "executableName": "eclass",
       "executableArgs": [
         "--no-sandbox"
-      ]
+      ],
+      "desktop": {
+        "Name": "eClass",
+        "StartupWMClass": "eClass"
+      }
     },
     "win": {
       "target": [
