@@ -19,7 +19,7 @@ ok('qs skips null + encodes', qs === 'A=1&B=x%20y&D=%E4%B8%AD');
 console.log('[smoke] URL builders produce correct paths');
 const c = new EclassClient({ host: 'h.test', https: true, code: 'C' });
 c.auth = { stuSN: 'S1', stuPass: 'P', macId: 'AA-BB' };
-c._get = (p) => Promise.resolve({ status: 200, body: 'GET ' + p });
+c.core._get = (p) => Promise.resolve({ status: 200, body: 'GET ' + p });
 (async () => {
   ok('classList1 carries Code+auth',
      (await c.classList1()).body === 'GET /ClassList1.aspx?Code=C&StuSN=S1&StuPass=P&MacID=AA-BB');
@@ -27,9 +27,10 @@ c._get = (p) => Promise.resolve({ status: 200, body: 'GET ' + p });
      (await c.classList2('239')).body === 'GET /ClassList2.aspx?Code=C&ClassID=239&StuSN=S1&StuPass=P&MacID=AA-BB');
   ok('movieList order (Code,MovieID,ClassID)',
      (await c.movieList('1648', '239')).body === 'GET /MovieList.aspx?Code=C&MovieID=1648&ClassID=239&StuSN=S1&StuPass=P&MacID=AA-BB');
-  const mv = await c.getMovieUrlCDN({ key2: 'k2', key: 'k', movie: '4463', groupId: '239' });
-  ok('getMovieUrlCDN order (Key2,Key,Movie,Code,GroupID)',
-     mv.body === 'GET /GetMovieURLCDN.aspx?Key2=k2&Key=k&Movie=4463&Code=C&GroupID=239&StuSN=S1&StuPass=P&MacID=AA-BB');
+  // 影片端點現在自動簽 Key (moviesign): 只給 movie+groupId+固定 key2
+  const mv = await c.getMovieUrlCDN({ movie: '4463', groupId: '239', key2: '123456' });
+  ok('getMovieUrlCDN auto-signs Key + 正確參數順序',
+     /^GET \/GetMovieURLCDN\.aspx\?Key2=123456&Key=[0-9a-f]{32}&Movie=4463&Code=C&GroupID=239&StuSN=S1&StuPass=P&MacID=AA-BB$/.test(mv.body));
 
   console.log('[smoke] keysign deterministic + swappable');
   const f = { code: 'C', stuSN: 'S1', stuPass: 'P', macId: 'AA-BB', computerName: 'PC' };

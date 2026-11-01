@@ -37,6 +37,16 @@ function parseCheckMac(body) {
     '-1': { ok: false, code: 'BAD_CREDENTIALS', msg: '帳號或密碼錯誤' },
   };
   if (codeMap[text]) return { ...codeMap[text], raw: text };
+  const comma = text.indexOf(',');
+  if (comma > 0) {
+    const head = text.slice(0, comma).trim();
+    const name = text.slice(comma + 1).trim();
+    if (head === '1') return { ok: true, code: 'OK', msg: '登入成功', name, raw: text };
+    if (codeMap[head]) return { ...codeMap[head], raw: text };
+  }
+  if (/執行階段錯誤|Runtime Error|Server Error|<html/i.test(text)) {
+    return { ok: false, code: 'SERVER_ERROR', msg: '伺服器錯誤（多半是補習班選錯，或帳號不屬於此補習班）', raw: text };
+  }
   return { ok: false, code: 'UNKNOWN', msg: '未知回應', raw: text };
 }
 

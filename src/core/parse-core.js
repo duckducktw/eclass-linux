@@ -40,6 +40,18 @@
     if (codeMap[text]) {
       return Object.assign({}, codeMap[text], { raw: text });
     }
+    // 有些端點回 "1,姓名" (CheckMac/StuLogin 合併格式) → 取第一欄判定、第二欄當姓名
+    const comma = text.indexOf(',');
+    if (comma > 0) {
+      const head = text.slice(0, comma).trim();
+      const name = text.slice(comma + 1).trim();
+      if (head === '1') return { ok: true, code: 'OK', msg: '登入成功', name: name, raw: text };
+      if (codeMap[head]) return Object.assign({}, codeMap[head], { raw: text });
+    }
+    // 伺服器錯誤頁 (ASP.NET 執行階段錯誤) → 人話
+    if (/執行階段錯誤|Runtime Error|Server Error|<html/i.test(text)) {
+      return { ok: false, code: 'SERVER_ERROR', msg: '伺服器錯誤（多半是補習班選錯，或帳號不屬於此補習班）', raw: text };
+    }
     return { ok: false, code: 'UNKNOWN', msg: '未知回應', raw: text };
   }
 

@@ -7,71 +7,87 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <header>
-    <h1>eClass <span class="tag">Android</span></h1>
-    <div id="machine" class="muted"></div>
+  <header class="topbar">
+    <div class="brand">eClass</div>
+    <div class="spacer"></div>
+    <div id="who" class="who"></div>
+    <button id="btnLogout" class="ghost sm">登出</button>
   </header>
 
-  <section id="login" class="card">
-    <h2>登入</h2>
-    <div class="row">
-      <label>伺服器</label>
-      <select id="hostSelect"></select>
-    </div>
-    <div class="row">
-      <input id="hostCustom" placeholder="或自訂 host" />
-      <label class="chk"><input type="checkbox" id="useHttps" checked /> HTTPS</label>
-    </div>
-    <div class="row">
-      <label>Code</label><input id="code" placeholder="課程/補習班 Code" />
-    </div>
-    <div class="row">
-      <label>學號</label><input id="stuSN" placeholder="StuSN" />
-    </div>
-    <div class="row">
-      <label>密碼</label><input id="stuPass" type="password" placeholder="StuPass" />
-    </div>
-    <div class="row">
-      <button id="btnLogin">登入</button>
-      <button id="btnLogout" class="ghost">登出</button>
-    </div>
-    <pre id="loginOut" class="out"></pre>
-  </section>
+  <main class="wrap">
+    <!-- STEP 1 登入 -->
+    <section id="stepLogin" class="step active">
+      <div class="step-head"><span class="num">1</span> 選補習班並登入</div>
+      <div class="card">
+        <div class="hostgrid" id="hostCards"></div>
+        <details class="adv">
+          <summary>進階：自訂伺服器</summary>
+          <input id="advHost" class="inp" placeholder="自訂 host（例如 makeup.jlweb.com.tw）" />
+        </details>
+        <div class="field">
+          <label>補習班代碼 (Code)</label>
+          <input id="code" class="inp" inputmode="numeric" placeholder="例如 0102" />
+        </div>
+        <div class="field2">
+          <div class="field">
+            <label>學號</label>
+            <input id="stuSN" class="inp" placeholder="學號" />
+          </div>
+          <div class="field">
+            <label>密碼</label>
+            <input id="stuPass" class="inp" type="password" placeholder="密碼" />
+          </div>
+        </div>
+        <button id="btnLogin" class="primary big">登入</button>
+      </div>
+    </section>
 
-  <section id="browse" class="card">
-    <h2>課程</h2>
-    <div class="row">
-      <button id="btnClass1">載入科目清單</button>
-    </div>
-    <div class="col">
-      <div class="sublabel">科目</div>
-      <div id="classList" class="itemlist"></div>
-      <div class="sublabel">單元</div>
-      <div id="unitList" class="itemlist"></div>
-      <div class="sublabel">分段 (點擊播放)</div>
-      <div id="segList" class="itemlist"></div>
-    </div>
-    <pre id="listOut" class="out"></pre>
-  </section>
+    <!-- STEP 2 課程 -->
+    <section id="stepBrowse" class="step">
+      <div class="step-head"><span class="num">2</span> 選課程 → 單元 → 分段</div>
+      <div class="browse">
+        <div class="pane">
+          <div class="pane-title">課程</div>
+          <div id="classList" class="itemlist"></div>
+        </div>
+        <div class="pane">
+          <div class="pane-title">單元</div>
+          <div id="unitList" class="itemlist"><div class="empty">先選上方課程</div></div>
+        </div>
+        <div class="pane">
+          <div class="pane-title">分段（點擊播放）</div>
+          <div id="segList" class="itemlist"><div class="empty">先選單元</div></div>
+        </div>
+      </div>
+    </section>
 
-  <section id="play" class="card">
-    <h2>播放</h2>
-    <video id="player" class="player" controls playsinline webkit-playsinline></video>
-    <input id="movieUrl" class="urlbox" placeholder="影片連結 (expire/token)" />
-    <div class="row">
-      <button id="btnPlayUrl">播放此連結</button>
-    </div>
-    <pre id="playOut" class="out"></pre>
-  </section>
+    <!-- STEP 3 播放 -->
+    <section id="stepPlay" class="step">
+      <div class="step-head"><span class="num">3</span> 播放</div>
+      <div class="card">
+        <video id="player" class="player" controls playsinline webkit-playsinline></video>
+        <div id="playHint" class="hint"></div>
+        <div class="urlrow">
+          <input id="curUrl" class="inp mono" readonly placeholder="影片連結 (expire/token)" />
+          <button id="btnVlc" class="ghost">用外部播放器</button>
+        </div>
+      </div>
+    </section>
+  </main>
 
-  <!-- 平台無關 core (UMD, 掛 window.Eclass*) -->
+  <div id="busy" class="busy"><div class="spinner"></div><div id="busyLabel">載入中…</div></div>
+  <div id="toast" class="toast"></div>
+  <div id="machine" class="machine"></div>
+
+  <!-- 平台無關 core (UMD) -->
   <script src="js/core/md5.js"></script>
   <script src="js/core/moviesign-core.js"></script>
   <script src="js/core/parse-core.js"></script>
   <script src="js/core/eclass-core.js"></script>
-  <!-- Android 平台層 (CapacitorHttp + 假 MAC) -->
+  <!-- Android 平台層 (CapacitorHttp + 裝置ID) + facade -->
   <script src="js/platform-capacitor.js"></script>
-  <!-- UI -->
-  <script src="js/app.js"></script>
+  <script src="js/adapter-capacitor.js"></script>
+  <!-- 共用 UI -->
+  <script src="js/ui.js"></script>
 </body>
 </html>

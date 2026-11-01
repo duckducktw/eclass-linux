@@ -2,73 +2,89 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
-  <title>eClass Linux</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; media-src *; img-src 'self' data:;" />
+  <title>eClass</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
-    <h1>eClass <span class="tag">Linux</span></h1>
-    <div id="machine" class="muted"></div>
+  <header class="topbar">
+    <div class="brand">eClass</div>
+    <div class="spacer"></div>
+    <div id="who" class="who"></div>
+    <button id="btnLogout" class="ghost sm">登出</button>
   </header>
 
-  <section id="login" class="card">
-    <h2>登入</h2>
-    <div class="row">
-      <label>伺服器</label>
-      <select id="hostSelect"></select>
-      <input id="hostCustom" placeholder="或自訂 host" />
-      <label class="chk"><input type="checkbox" id="useHttps" checked /> HTTPS</label>
-    </div>
-    <div class="row">
-      <label>Code</label><input id="code" placeholder="課程/補習班 Code" />
-    </div>
-    <div class="row">
-      <label>學號</label><input id="stuSN" placeholder="StuSN" />
-      <label>密碼</label><input id="stuPass" type="password" placeholder="StuPass" />
-    </div>
-    <div class="row">
-      <button id="btnLogin">登入 (CheckMac)</button>
-      <button id="btnLogout" class="ghost">登出</button>
-    </div>
-    <pre id="loginOut" class="out"></pre>
-  </section>
+  <main class="wrap">
+    <!-- STEP 1 登入 -->
+    <section id="stepLogin" class="step active">
+      <div class="step-head"><span class="num">1</span> 選補習班並登入</div>
+      <div class="card">
+        <div class="hostgrid" id="hostCards"></div>
 
-  <section id="browse" class="card">
-    <h2>課程</h2>
-    <div class="row">
-      <button id="btnClass1">ClassList1</button>
-      <button id="btnClass2">ClassList2</button>
-      <button id="btnPoint">點數 GetClassPoint</button>
-    </div>
-    <div class="row">
-      <label>MovieList</label>
-      <input id="mlMovieId" placeholder="MovieID" />
-      <input id="mlClassId" placeholder="ClassID" />
-      <button id="btnMovieList">查影片</button>
-    </div>
-    <pre id="listOut" class="out"></pre>
-  </section>
+        <details class="adv">
+          <summary>進階：自訂伺服器</summary>
+          <input id="advHost" class="inp" placeholder="自訂 host（例如 makeup.jlweb.com.tw）" />
+        </details>
 
-  <section id="play" class="card">
-    <h2>取影片連結 / 播放</h2>
-    <div class="row">
-      <label>來源</label>
-      <select id="movSource"><option value="s3">S3</option><option value="cdn">CDN</option></select>
-      <input id="pMovie" placeholder="Movie" />
-      <input id="pGroup" placeholder="GroupID" />
-      <input id="pKey" placeholder="Key" />
-      <input id="pKey2" placeholder="Key2" />
-    </div>
-    <div class="row">
-      <button id="btnGetUrl">取得連結</button>
-      <button id="btnPlay">用 VLC 播放</button>
-      <label class="chk"><input type="checkbox" id="fs" /> 全螢幕</label>
-    </div>
-    <input id="movieUrl" class="urlbox" placeholder="影片連結 (expire/token)" />
-    <pre id="playOut" class="out"></pre>
-  </section>
+        <div class="field">
+          <label>補習班代碼 (Code)</label>
+          <input id="code" class="inp" inputmode="numeric" placeholder="例如 0102" />
+        </div>
+        <div class="field2">
+          <div class="field">
+            <label>學號</label>
+            <input id="stuSN" class="inp" placeholder="學號" />
+          </div>
+          <div class="field">
+            <label>密碼</label>
+            <input id="stuPass" class="inp" type="password" placeholder="密碼" />
+          </div>
+        </div>
+        <button id="btnLogin" class="primary big">登入</button>
+      </div>
+    </section>
 
-  <script src="renderer.js"></script>
+    <!-- STEP 2 課程 -->
+    <section id="stepBrowse" class="step">
+      <div class="step-head"><span class="num">2</span> 選課程 → 單元 → 分段</div>
+      <div class="browse">
+        <div class="pane">
+          <div class="pane-title">課程</div>
+          <div id="classList" class="itemlist"></div>
+        </div>
+        <div class="pane">
+          <div class="pane-title">單元</div>
+          <div id="unitList" class="itemlist"><div class="empty">先選左邊課程</div></div>
+        </div>
+        <div class="pane">
+          <div class="pane-title">分段（點擊播放）</div>
+          <div id="segList" class="itemlist"><div class="empty">先選單元</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 3 播放 -->
+    <section id="stepPlay" class="step">
+      <div class="step-head"><span class="num">3</span> 播放</div>
+      <div class="card">
+        <video id="player" class="player" controls playsinline webkit-playsinline></video>
+        <div id="playHint" class="hint"></div>
+        <div class="urlrow">
+          <input id="curUrl" class="inp mono" readonly placeholder="影片連結 (expire/token)" />
+          <button id="btnVlc" class="ghost">用 VLC 開</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="busy" class="busy"><div class="spinner"></div><div id="busyLabel">載入中…</div></div>
+  <div id="toast" class="toast"></div>
+  <div id="machine" class="machine"></div>
+
+  <!-- 平台 facade：Electron 用 preload IPC adapter -->
+  <script src="adapter-electron.js"></script>
+  <script src="ui.js"></script>
 </body>
 </html>
