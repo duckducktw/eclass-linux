@@ -24,6 +24,7 @@ const path = require('path');
 const Store = require('electron-store');
 
 const { EclassClient, KNOWN_HOSTS } = require('../api/eclass');
+const schools = require('../core/schools');
 const { getMachineId } = require('../api/machineid');
 const parse = require('../api/parse');
 const { playInVlc, hasVlc } = require('../api/player');
@@ -68,6 +69,7 @@ app.on('window-all-closed', () => {
 ipcMain.handle('app:bootInfo', async () => {
   return {
     knownHosts: KNOWN_HOSTS,
+    schools: schools.SCHOOLS,
     machine: getMachineId({ sep: 'dash' }),
     vlc: hasVlc(),
     savedHost: store.get('host', ''),
@@ -93,33 +95,47 @@ ipcMain.handle('api:checkMac', async (_e, p) => {
   return { status: r.status, parsed, raw: r.body };
 });
 
-// 自動登入：並行對所有已知補習班試 CheckMac，回傳通過的清單。
-// 0 間→失敗；1 間→自動選定；多間→交給 UI 彈窗選。
+// 多校共用登入：並行對候選補習班試 CheckMac，回傳通過(帳密正確)的清單。
+// 策略：
+//   1) 若使用者輸入的 Code 命中 schools 註冊表 → 優先只試那台 (免盲掃、最快)。
+//   2) Code 未知 → 回退並行試所有已知 host (CheckMac 會真驗帳密，錯的回 -1)。
+// 回傳：0 間→失敗；1 間→UI 自動選定；多間→UI 彈窗選。
 ipcMain.handle('api:loginAuto', async (_e, p) => {
   const machine = getMachineId({ sep: 'dash' });
-  const entries = Object.entries(KNOWN_HOSTS); // [[key, host], ...]
-  // 單一 host 逾時不拖垮整體：每個 job 包 9s race
+
+  // 候選 host 清單：已知 Code 走快路，否則全試。
+  const resolved = schools.resolve(p.code);
+  const candidates = resolved
+    ? [{ host: resolved.host, name: resolved.name, https: resolved.https !== false }]
+    : schools.allHosts();
+
   const withTimeout = (promise, ms) => Promise.race([
     promise,
     new Promise((resolve) => setTimeout(() => resolve(null), ms)),
   ]);
-  const results = await Promise.all(entries.map(([key, host]) => withTimeout((async () => {
+
+  const tryOne = async ({ host, name, https }) => {
     try {
-      const c = new EclassClient({ host, timeout: 9000 });
+      const c = new EclassClient({ host, https, timeout: 9000 });
       const r = await c.checkMac({
         code: p.code, stuSN: p.stuSN, stuPass: p.stuPass,
         macId: machine.macId, computerName: machine.computerName,
       });
       const parsed = parse.parseCheckMac(r.body);
-      return parsed.ok ? { key, host, name: parsed.name || '', client: c } : null;
+      // 只收「帳密正確(ok)」的；-1(帳密錯)/2(換機)/500(選錯校) 一律淘汰。
+      return parsed.ok ? { host, name: parsed.name || name || '', https, client: c } : null;
     } catch (_err) {
       return null;
     }
-  })(), 9500)));
+  };
+
+  const results = await Promise.all(
+    candidates.map((cand) => withTimeout(tryOne(cand), 9500))
+  );
   const hits = results.filter(Boolean);
   autoCandidates = {};
   hits.forEach((h) => { autoCandidates[h.host] = h.client; });
-  return { hits: hits.map((h) => ({ key: h.key, host: h.host, name: h.name })) };
+  return { hits: hits.map((h) => ({ key: h.host, host: h.host, name: h.name })) };
 });
 
 // UI 從多個通過的補習班中選定一間（或單間自動選）→ 綁定成當前 client。

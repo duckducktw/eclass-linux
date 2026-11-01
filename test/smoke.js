@@ -55,5 +55,21 @@ c.core._get = (p) => Promise.resolve({ status: 200, body: 'GET ' + p });
   const list = parse.parseList('a, b<br/>c, d');
   ok('parseList rows/cols', list.rows.length === 2 && list.rows[0][1] === 'b');
 
+  console.log('[smoke] schools registry (多校共用登入)');
+  const schools = require('../src/core/schools');
+  ok('resolve 0102 -> JL host',
+     schools.resolve('0102').host === 'makeup.jlweb.com.tw');
+  ok('resolve 0060 -> faber',
+     schools.resolve('0060').host === 'hs.faber.com.tw');
+  ok('resolve unknown -> null', schools.resolve('9999') === null);
+  ok('resolve trims whitespace', schools.resolve(' 0102 ').host === 'makeup.jlweb.com.tw');
+  const allH = schools.allHosts();
+  ok('allHosts dedups + includes defaults', allH.length >= 8 && allH.some((h) => h.host === 'svr1.eclass.com.tw'));
+  ok('port host flagged non-https', schools.resolve('0055').https === false);
+  const ph = schools.parseHost('114.34.92.6:8888', false);
+  ok('parseHost splits port', ph.hostname === '114.34.92.6' && ph.port === 8888 && ph.https === false);
+  const ph2 = schools.parseHost('makeup.jlweb.com.tw', true);
+  ok('parseHost https default 443', ph2.port === 443 && ph2.https === true);
+
   console.log(`\n[smoke] ALL ${pass} checks passed ✅`);
 })().catch((e) => { console.error('\n[smoke] FAIL:', e.message); process.exit(1); });

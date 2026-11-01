@@ -58,22 +58,33 @@
       return Promise.resolve({ ok: true, host: host });
     },
 
-    // 自動登入：並行對所有已知補習班試 CheckMac，回通過清單。
+    // 多校共用登入：已知 Code 走快路(只試對應 host)，未知則並行試所有已知 host。
+    //   CheckMac 會真驗帳密(錯回 -1)，只收 parsed.ok。
     loginAuto: function (p) {
       var candidates = {}; // host → EclassCore
-      var keys = Object.keys(KNOWN_HOSTS);
+      var schools = window.EclassSchools;
       function withTimeout(promise, ms) {
         return Promise.race([promise, new Promise(function (res) { setTimeout(function () { res(null); }, ms); })]);
       }
-      var jobs = keys.map(function (key) {
-        var host = KNOWN_HOSTS[key];
-        var c = new EclassCore({ httpGet: httpGet, host: host, https: true });
+      // 候選清單：{ host, name, https }
+      var list;
+      var resolved = schools ? schools.resolve(p.code) : null;
+      if (resolved) {
+        list = [{ host: resolved.host, name: resolved.name, https: resolved.https !== false }];
+      } else if (schools) {
+        list = schools.allHosts();
+      } else {
+        // 退路：舊 KNOWN_HOSTS（理論上 schools 一定在）
+        list = Object.keys(KNOWN_HOSTS).map(function (k) { return { host: KNOWN_HOSTS[k], name: FRIENDLY[k] || k, https: true }; });
+      }
+      var jobs = list.map(function (cand) {
+        var c = new EclassCore({ httpGet: httpGet, host: cand.host, https: cand.https !== false });
         var job = c.checkMac({
           code: p.code, stuSN: p.stuSN, stuPass: p.stuPass,
           macId: machine.macId, computerName: machine.computerName, key: '',
         }).then(function (r) {
           var parsed = parse.parseCheckMac(r.body);
-          if (parsed.ok) { candidates[host] = c; return { key: key, host: host, name: parsed.name || '', label: FRIENDLY[key] || key }; }
+          if (parsed.ok) { candidates[cand.host] = c; return { key: cand.host, host: cand.host, name: parsed.name || cand.name || '', label: cand.name || cand.host }; }
           return null;
         }).catch(function () { return null; });
         return withTimeout(job, 9500);
