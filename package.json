@@ -1,0 +1,19 @@
+{
+  "name": "eclass-linux",
+  "version": "0.1.0",
+  "description": "Linux (Electron) reimplementation of the eClass 補習班課程播放器 client",
+  "main": "src/main/main.js",
+  "author": "duckducktw <dianasogooda@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "smoke": "node test/smoke.js",
+    "api-test": "node test/api-cli.js"
+  },
+  "dependencies": {
+    "electron-store": "^8.2.0"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7"
+  }
+}

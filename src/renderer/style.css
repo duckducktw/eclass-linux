@@ -1,0 +1,16 @@
+:root { --bg:#14161a; --card:#1d2027; --fg:#e6e8eb; --muted:#8b93a0; --accent:#4c8dff; --line:#2a2e37; }
+* { box-sizing:border-box; }
+body { margin:0; font-family:system-ui,"Noto Sans CJK TC",sans-serif; background:var(--bg); color:var(--fg); }
+header { display:flex; align-items:baseline; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--line); }
+h1 { font-size:20px; margin:0; } .tag { font-size:12px; color:var(--accent); border:1px solid var(--accent); border-radius:4px; padding:1px 6px; margin-left:6px; }
+h2 { font-size:15px; margin:0 0 10px; color:var(--muted); }
+.card { background:var(--card); margin:16px 20px; padding:16px; border-radius:10px; border:1px solid var(--line); }
+.row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+label { font-size:13px; color:var(--muted); min-width:48px; }
+input, select { background:#0f1116; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:7px 9px; font-size:13px; flex:1; min-width:90px; }
+.chk { display:flex; align-items:center; gap:4px; flex:0; } .chk input { flex:0; min-width:auto; }
+button { background:var(--accent); color:#fff; border:none; border-radius:6px; padding:8px 14px; font-size:13px; cursor:pointer; }
+button:hover { filter:brightness(1.1); } button.ghost { background:transparent; border:1px solid var(--line); color:var(--muted); }
+.out { background:#0b0d11; border:1px solid var(--line); border-radius:6px; padding:10px; font-size:12px; max-height:180px; overflow:auto; white-space:pre-wrap; word-break:break-all; color:#b7c0cc; }
+.urlbox { width:100%; margin-bottom:8px; }
+.muted { color:var(--muted); font-size:12px; }

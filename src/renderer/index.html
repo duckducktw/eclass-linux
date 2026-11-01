@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>eClass Linux</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>eClass <span class="tag">Linux</span></h1>
+    <div id="machine" class="muted"></div>
+  </header>
+
+  <section id="login" class="card">
+    <h2>登入</h2>
+    <div class="row">
+      <label>伺服器</label>
+      <select id="hostSelect"></select>
+      <input id="hostCustom" placeholder="或自訂 host" />
+      <label class="chk"><input type="checkbox" id="useHttps" checked /> HTTPS</label>
+    </div>
+    <div class="row">
+      <label>Code</label><input id="code" placeholder="課程/補習班 Code" />
+    </div>
+    <div class="row">
+      <label>學號</label><input id="stuSN" placeholder="StuSN" />
+      <label>密碼</label><input id="stuPass" type="password" placeholder="StuPass" />
+    </div>
+    <div class="row">
+      <button id="btnLogin">登入 (CheckMac)</button>
+      <button id="btnLogout" class="ghost">登出</button>
+    </div>
+    <pre id="loginOut" class="out"></pre>
+  </section>
+
+  <section id="browse" class="card">
+    <h2>課程</h2>
+    <div class="row">
+      <button id="btnClass1">ClassList1</button>
+      <button id="btnClass2">ClassList2</button>
+      <button id="btnPoint">點數 GetClassPoint</button>
+    </div>
+    <div class="row">
+      <label>MovieList</label>
+      <input id="mlMovieId" placeholder="MovieID" />
+      <input id="mlClassId" placeholder="ClassID" />
+      <button id="btnMovieList">查影片</button>
+    </div>
+    <pre id="listOut" class="out"></pre>
+  </section>
+
+  <section id="play" class="card">
+    <h2>取影片連結 / 播放</h2>
+    <div class="row">
+      <label>來源</label>
+      <select id="movSource"><option value="s3">S3</option><option value="cdn">CDN</option></select>
+      <input id="pMovie" placeholder="Movie" />
+      <input id="pGroup" placeholder="GroupID" />
+      <input id="pKey" placeholder="Key" />
+      <input id="pKey2" placeholder="Key2" />
+    </div>
+    <div class="row">
+      <button id="btnGetUrl">取得連結</button>
+      <button id="btnPlay">用 VLC 播放</button>
+      <label class="chk"><input type="checkbox" id="fs" /> 全螢幕</label>
+    </div>
+    <input id="movieUrl" class="urlbox" placeholder="影片連結 (expire/token)" />
+    <pre id="playOut" class="out"></pre>
+  </section>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
