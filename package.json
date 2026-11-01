@@ -8,12 +8,44 @@
   "scripts": {
     "start": "electron .",
     "smoke": "node test/smoke.js",
-    "api-test": "node test/api-cli.js"
+    "api-test": "node test/api-cli.js",
+    "dist": "electron-builder",
+    "dist:all": "electron-builder -mwl"
   },
   "dependencies": {
     "electron-store": "^8.2.0"
   },
   "devDependencies": {
-    "electron": "^31.7.7"
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "tw.duckduck.eclasslinux",
+    "productName": "eClass Linux",
+    "files": [
+      "src/**/*",
+      "!**/*.md"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "tar.gz"
+      ],
+      "category": "AudioVideo"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.education"
+    }
   }
 }
