@@ -8,6 +8,7 @@ const https = require('https');
 const http = require('http');
 const { URL } = require('url');
 const { computeKey } = require('./keysign');
+const { computeMovieKey } = require('./moviesign');
 
 /**
  * 已知主機（各補習班各自部署同一套系統）。硬編於 exe。
@@ -213,22 +214,28 @@ class EclassClient {
   }
 
   // ---------------------------------------------------------------------------
-  // 3. 影片串流 URL (防盜鏈) — ⚠️ Key/Key2 驗證未破解
+  // 3. 影片串流 URL (防盜鏈) — ✅ Key 演算法已破解 (見 moviesign.js)
+  //    Key = md5_hex( "2370" + StuSN + "4277" + Movie + Key2 )；Key2 任意。
+  //    回應: "-1"缺身分 / "-2"Key空 / "-3"Key錯 / "http://...?expire=&token="成功。
   // ---------------------------------------------------------------------------
   /**
-   * GetMovieURLS3.aspx — hicloud S3 版。此部署對缺參回「執行階段錯誤」。
-   * GetMovieURLCDN.aspx — hinet CDN 版。實測回應碼:
-   *   空 Key/Key2  → "-2" (缺 Key)
-   *   亂填 Key     → "-3" (Key 錯)
-   *   正確         → http://...?expire=&token= (帶時效簽章)
-   * ⚠️ Key/Key2 的正確值無法從 exe 靜態還原，需抓一次原程式播放封包 (見 README)。
-   * @param {object} p { key2, key, movie(段ID,來自MovieList), groupId }
+   * 內部：組影片端點 URL 並自動簽 Key。
+   * @param {'GetMovieURLCDN'|'GetMovieURLS3'} endpoint
+   * @param {object} p { movie(段ID,來自MovieList), groupId, key2? }
    */
-  getMovieUrlS3(p) {
+  _getMovieUrl(endpoint, p) {
+    if (!this.auth || !this.auth.stuSN) {
+      throw new Error('必須先 checkMac() 登入 (需要 StuSN 來簽 Key)');
+    }
+    const { key, key2 } = computeMovieKey({
+      stuSN: this.auth.stuSN,
+      movie: p.movie,
+      key2: p.key2, // 省略則自動隨機
+    });
     return this._get(
-      `/GetMovieURLS3.aspx?${EclassClient.qs([
-        ['Key2', p.key2],
-        ['Key', p.key],
+      `/${endpoint}.aspx?${EclassClient.qs([
+        ['Key2', key2],
+        ['Key', key],
         ['Movie', p.movie],
         ['Code', this.code],
         ['GroupID', p.groupId],
@@ -236,16 +243,20 @@ class EclassClient {
     );
   }
 
+  /**
+   * GetMovieURLS3.aspx — hicloud S3 版 (部分補習班用)。
+   * @param {object} p { movie(段ID), groupId, key2? }
+   */
+  getMovieUrlS3(p) {
+    return this._getMovieUrl('GetMovieURLS3', p);
+  }
+
+  /**
+   * GetMovieURLCDN.aspx — hinet CDN 版。成功回傳帶時效簽章的影片 URL。
+   * @param {object} p { movie(段ID,來自MovieList第二欄), groupId(來自ClassList1第二欄), key2? }
+   */
   getMovieUrlCDN(p) {
-    return this._get(
-      `/GetMovieURLCDN.aspx?${EclassClient.qs([
-        ['Key2', p.key2],
-        ['Key', p.key],
-        ['Movie', p.movie],
-        ['Code', this.code],
-        ['GroupID', p.groupId],
-      ])}&${this._authQs()}`
-    );
+    return this._getMovieUrl('GetMovieURLCDN', p);
   }
 
   // ---------------------------------------------------------------------------

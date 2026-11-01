@@ -28,13 +28,31 @@ function isVirtual(name) {
 }
 
 /**
- * 取得第一張實體網卡的 MAC（格式對齊原程式：大寫、冒號分隔；可選連字號）。
+ * 寫死的已綁定 MAC / 電腦名。
+ * eClass 伺服器把帳號綁到「第一次登入用的 MAC」，之後換機器會回 "2"(機器不符)，
+ * 需補習班後台解綁。為省掉跨裝置麻煩，這裡寫死成已綁定本帳號的那組，
+ * 任何裝置跑這個 client 都會送同一個 MAC+電腦名 → 伺服器永遠認得。
+ * 設環境變數 ECLASS_PINNED_MAC / ECLASS_PINNED_CN 可覆寫（換帳號時改這裡即可）。
+ */
+const PINNED_MAC = process.env.ECLASS_PINNED_MAC || '00-11-22-33-44-55';
+const PINNED_CN = process.env.ECLASS_PINNED_CN || 'test-pc';
+
+/**
+ * 取得 MAC。預設回「寫死的已綁定 MAC」（pinned=true）。
+ * 傳 { pinned: false } 才會去抓本機真實網卡（給想重新綁定時用）。
  * @param {object} [opts]
+ * @param {boolean} [opts.pinned=true] 是否用寫死的已綁定 MAC
  * @param {'colon'|'dash'|'none'} [opts.sep='dash'] 原程式 UI 出現過 00-00-00-00-00-00（dash）
  * @returns {string|null}
  */
 function getMac(opts = {}) {
   const sep = opts.sep || 'dash';
+  if (opts.pinned !== false) {
+    // 已綁定 MAC 本身就是 dash 格式；要別的分隔符再轉
+    if (sep === 'colon') return PINNED_MAC.replace(/-/g, ':');
+    if (sep === 'none') return PINNED_MAC.replace(/-/g, '');
+    return PINNED_MAC;
+  }
   const ifaces = os.networkInterfaces();
   const candidates = [];
   for (const [name, addrs] of Object.entries(ifaces)) {
@@ -60,17 +78,18 @@ function rank(name) {
   return 2;
 }
 
-/** 電腦名 */
-function getComputerName() {
+/** 電腦名。預設回寫死的已綁定電腦名；傳 false 回本機真實 hostname。 */
+function getComputerName(pinned = true) {
+  if (pinned) return PINNED_CN;
   return os.hostname();
 }
 
-/** 一次拿齊 */
+/** 一次拿齊（預設用寫死的已綁定身分） */
 function getMachineId(opts = {}) {
   return {
     macId: getMac(opts),
-    computerName: getComputerName(),
+    computerName: getComputerName(opts.pinned !== false),
   };
 }
 
-module.exports = { getMac, getComputerName, getMachineId, isVirtual };
+module.exports = { getMac, getComputerName, getMachineId, isVirtual, PINNED_MAC, PINNED_CN };
