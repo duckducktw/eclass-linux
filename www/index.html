@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>eClass</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header>
+    <h1>eClass <span class="tag">Android</span></h1>
+    <div id="machine" class="muted"></div>
+  </header>
+
+  <section id="login" class="card">
+    <h2>登入</h2>
+    <div class="row">
+      <label>伺服器</label>
+      <select id="hostSelect"></select>
+    </div>
+    <div class="row">
+      <input id="hostCustom" placeholder="或自訂 host" />
+      <label class="chk"><input type="checkbox" id="useHttps" checked /> HTTPS</label>
+    </div>
+    <div class="row">
+      <label>Code</label><input id="code" placeholder="課程/補習班 Code" />
+    </div>
+    <div class="row">
+      <label>學號</label><input id="stuSN" placeholder="StuSN" />
+    </div>
+    <div class="row">
+      <label>密碼</label><input id="stuPass" type="password" placeholder="StuPass" />
+    </div>
+    <div class="row">
+      <button id="btnLogin">登入</button>
+      <button id="btnLogout" class="ghost">登出</button>
+    </div>
+    <pre id="loginOut" class="out"></pre>
+  </section>
+
+  <section id="browse" class="card">
+    <h2>課程</h2>
+    <div class="row">
+      <button id="btnClass1">載入科目清單</button>
+    </div>
+    <div class="col">
+      <div class="sublabel">科目</div>
+      <div id="classList" class="itemlist"></div>
+      <div class="sublabel">單元</div>
+      <div id="unitList" class="itemlist"></div>
+      <div class="sublabel">分段 (點擊播放)</div>
+      <div id="segList" class="itemlist"></div>
+    </div>
+    <pre id="listOut" class="out"></pre>
+  </section>
+
+  <section id="play" class="card">
+    <h2>播放</h2>
+    <video id="player" class="player" controls playsinline webkit-playsinline></video>
+    <input id="movieUrl" class="urlbox" placeholder="影片連結 (expire/token)" />
+    <div class="row">
+      <button id="btnPlayUrl">播放此連結</button>
+    </div>
+    <pre id="playOut" class="out"></pre>
+  </section>
+
+  <!-- 平台無關 core (UMD, 掛 window.Eclass*) -->
+  <script src="js/core/md5.js"></script>
+  <script src="js/core/moviesign-core.js"></script>
+  <script src="js/core/parse-core.js"></script>
+  <script src="js/core/eclass-core.js"></script>
+  <!-- Android 平台層 (CapacitorHttp + 假 MAC) -->
+  <script src="js/platform-capacitor.js"></script>
+  <!-- UI -->
+  <script src="js/app.js"></script>
+</body>
+</html>

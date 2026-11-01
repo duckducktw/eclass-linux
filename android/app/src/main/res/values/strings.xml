@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">eClass</string>
+    <string name="title_activity_main">eClass</string>
+    <string name="package_name">tw.duckduck.eclassandroid</string>
+    <string name="custom_url_scheme">tw.duckduck.eclassandroid</string>
+</resources>

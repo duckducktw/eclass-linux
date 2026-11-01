@@ -10,9 +10,16 @@
     "smoke": "node test/smoke.js",
     "api-test": "node test/api-cli.js",
     "dist": "electron-builder",
-    "dist:all": "electron-builder -mwl"
+    "dist:all": "electron-builder -mwl",
+    "core:copy": "node scripts/copy-core-to-www.js",
+    "cap:sync": "npm run core:copy && cap sync android",
+    "cap:apk": "npm run cap:sync && cd android && ./gradlew assembleDebug"
   },
   "dependencies": {
+    "@capacitor/android": "^6.2.3",
+    "@capacitor/cli": "^6.2.3",
+    "@capacitor/core": "^6.2.3",
+    "@capacitor/device": "^6.0.3",
     "electron-store": "^8.2.0"
   },
   "devDependencies": {

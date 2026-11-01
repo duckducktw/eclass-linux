@@ -1,0 +1,25 @@
+:root { --bg:#14161a; --card:#1d2027; --fg:#e6e8eb; --muted:#8b93a0; --accent:#4c8dff; --line:#2a2e37; }
+* { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+body { margin:0; font-family:system-ui,"Noto Sans CJK TC",sans-serif; background:var(--bg); color:var(--fg); padding-bottom:40px; }
+header { display:flex; align-items:baseline; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--bg); z-index:10; flex-wrap:wrap; gap:4px; }
+h1 { font-size:18px; margin:0; }
+.tag { font-size:11px; color:var(--accent); border:1px solid var(--accent); border-radius:4px; padding:1px 6px; margin-left:6px; }
+h2 { font-size:14px; margin:0 0 10px; color:var(--muted); }
+.card { background:var(--card); margin:12px; padding:14px; border-radius:10px; border:1px solid var(--line); }
+.row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+.col { display:flex; flex-direction:column; gap:6px; }
+label { font-size:13px; color:var(--muted); min-width:44px; }
+.sublabel { font-size:12px; color:var(--muted); margin-top:6px; }
+input, select { background:#0f1116; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:9px 10px; font-size:14px; flex:1; min-width:90px; }
+.chk { display:flex; align-items:center; gap:4px; flex:0; } .chk input { flex:0; min-width:auto; width:auto; }
+button { background:var(--accent); color:#fff; border:none; border-radius:6px; padding:10px 16px; font-size:14px; cursor:pointer; }
+button:active { filter:brightness(1.2); }
+button.ghost { background:transparent; border:1px solid var(--line); color:var(--muted); }
+button:disabled { opacity:.4; }
+.itemlist { display:flex; flex-direction:column; gap:4px; max-height:200px; overflow:auto; }
+.itemlist:empty::after { content:"—"; color:var(--muted); font-size:12px; }
+button.listitem { background:#0f1116; border:1px solid var(--line); color:var(--fg); text-align:left; padding:10px 12px; font-size:13px; }
+.player { width:100%; background:#000; border-radius:8px; margin-bottom:8px; max-height:50vh; }
+.out { background:#0b0d11; border:1px solid var(--line); border-radius:6px; padding:10px; font-size:12px; max-height:160px; overflow:auto; white-space:pre-wrap; word-break:break-all; color:#b7c0cc; }
+.urlbox { width:100%; margin-bottom:8px; }
+.muted { color:var(--muted); font-size:11px; }

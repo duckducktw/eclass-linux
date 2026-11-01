@@ -5,3 +5,19 @@ dist/
 # electron-store 的本機設定（含帳號快取）
 config/
 *.env
+
+# --- Capacitor / Android ---
+# 自動產生、不進 repo 的 Android build 產物與本機設定
+android/.gradle/
+android/build/
+android/app/build/
+android/capacitor-cordova-android-plugins/build/
+android/local.properties
+android/.idea/
+android/app/release/
+*.apk
+*.aab
+# www 的 core 是從 src/core 複製產生 (npm run core:copy)，不進 repo
+www/js/core/
+# Capacitor 本機快取
+.capacitor/
