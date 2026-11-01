@@ -5,6 +5,17 @@
  * 安全設定：contextIsolation 開、nodeIntegration 關，renderer 只能走 preload 白名單。
  */
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
+
+// ⚠️ 必須在 app ready 之前、require electron 後第一時間設定。
+// Ubuntu 24.04+ 的 AppArmor 預設擋 unprivileged user namespaces
+// (apparmor_restrict_unprivileged_userns=1) → Electron 的 SUID sandbox helper
+// 啟動失敗會直接 FATAL abort（使用者看到的是「點圖示沒反應/閃退」）。
+// 本 app 不載入任何遠端網頁，renderer 已 contextIsolation + 無 nodeIntegration，
+// 關掉 chromium 的 setuid 沙箱不增加此 app 的實際攻擊面，換「雙擊即用、免改系統」。
+app.commandLine.appendSwitch('no-sandbox');
+app.commandLine.appendSwitch('disable-setuid-sandbox');
+app.commandLine.appendSwitch('disable-gpu-sandbox');
+
 const path = require('path');
 const Store = require('electron-store');
 

@@ -22,6 +22,7 @@
   "build": {
     "appId": "tw.duckduck.eclasslinux",
     "productName": "eClass Linux",
+    "afterPack": "build/after-pack.js",
     "files": [
       "src/**/*",
       "!**/*.md"
@@ -32,7 +33,10 @@
         "deb",
         "tar.gz"
       ],
-      "category": "AudioVideo"
+      "category": "AudioVideo",
+      "executableArgs": [
+        "--no-sandbox"
+      ]
     },
     "win": {
       "target": [
