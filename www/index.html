@@ -17,13 +17,9 @@
   <main class="wrap">
     <!-- STEP 1 登入 -->
     <section id="stepLogin" class="step active">
-      <div class="step-head"><span class="num">1</span> 選補習班並登入</div>
+      <div class="step-head"><span class="num">1</span> 登入</div>
       <div class="card">
-        <div class="hostgrid" id="hostCards"></div>
-        <details class="adv">
-          <summary>進階：自訂伺服器</summary>
-          <input id="advHost" class="inp" placeholder="自訂 host（例如 makeup.jlweb.com.tw）" />
-        </details>
+        <p class="sublead">輸入補習班給的代碼與帳密，系統會自動找到你的補習班。</p>
         <div class="field">
           <label>補習班代碼 (Code)</label>
           <input id="code" class="inp" inputmode="numeric" placeholder="例如 0102" />
@@ -78,6 +74,15 @@
   <div id="busy" class="busy"><div class="spinner"></div><div id="busyLabel">載入中…</div></div>
   <div id="toast" class="toast"></div>
   <div id="machine" class="machine"></div>
+
+  <!-- 多補習班命中時的選擇彈窗 -->
+  <div id="picker" class="modal">
+    <div class="modal-box">
+      <div class="modal-title">找到多間補習班，請選擇</div>
+      <div id="pickerList" class="itemlist"></div>
+      <button id="pickerCancel" class="ghost" style="margin-top:12px;width:100%">取消</button>
+    </div>
+  </div>
 
   <!-- 平台無關 core (UMD) -->
   <script src="js/core/md5.js"></script>

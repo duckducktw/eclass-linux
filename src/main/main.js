@@ -33,6 +33,7 @@ const store = new Store({ name: 'eclass-linux' });
 /** @type {EclassClient|null} */
 let client = null;
 let mainWindow = null;
+let autoCandidates = {}; // host → EclassClient（自動登入通過的候選）
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -90,6 +91,46 @@ ipcMain.handle('api:checkMac', async (_e, p) => {
     store.set('stuSN', p.stuSN);
   }
   return { status: r.status, parsed, raw: r.body };
+});
+
+// 自動登入：並行對所有已知補習班試 CheckMac，回傳通過的清單。
+// 0 間→失敗；1 間→自動選定；多間→交給 UI 彈窗選。
+ipcMain.handle('api:loginAuto', async (_e, p) => {
+  const machine = getMachineId({ sep: 'dash' });
+  const entries = Object.entries(KNOWN_HOSTS); // [[key, host], ...]
+  // 單一 host 逾時不拖垮整體：每個 job 包 9s race
+  const withTimeout = (promise, ms) => Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(() => resolve(null), ms)),
+  ]);
+  const results = await Promise.all(entries.map(([key, host]) => withTimeout((async () => {
+    try {
+      const c = new EclassClient({ host, timeout: 9000 });
+      const r = await c.checkMac({
+        code: p.code, stuSN: p.stuSN, stuPass: p.stuPass,
+        macId: machine.macId, computerName: machine.computerName,
+      });
+      const parsed = parse.parseCheckMac(r.body);
+      return parsed.ok ? { key, host, name: parsed.name || '', client: c } : null;
+    } catch (_err) {
+      return null;
+    }
+  })(), 9500)));
+  const hits = results.filter(Boolean);
+  autoCandidates = {};
+  hits.forEach((h) => { autoCandidates[h.host] = h.client; });
+  return { hits: hits.map((h) => ({ key: h.key, host: h.host, name: h.name })) };
+});
+
+// UI 從多個通過的補習班中選定一間（或單間自動選）→ 綁定成當前 client。
+ipcMain.handle('api:selectHost', async (_e, { host, code, stuSN }) => {
+  const c = autoCandidates[host];
+  if (!c) throw new Error('候選補習班已失效，請重新登入');
+  client = c;
+  store.set('host', host);
+  store.set('code', code);
+  store.set('stuSN', stuSN);
+  return { ok: true, host };
 });
 
 ipcMain.handle('api:classList1', async () => {

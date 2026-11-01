@@ -40,79 +40,78 @@
     if (label) $('busyLabel').textContent = label;
   }
 
-  // --- boot: 補習班卡片 ------------------------------------------------------
+  // --- boot ------------------------------------------------------------------
   function boot() {
     return API.bootInfo().then(function (info) {
-      state.hosts = info.hosts;
-      var wrap = $('hostCards');
-      wrap.innerHTML = '';
-      info.hosts.forEach(function (h) {
-        var card = document.createElement('button');
-        card.className = 'hostcard';
-        card.innerHTML = '<div class="hc-name"></div><div class="hc-host"></div>';
-        card.querySelector('.hc-name').textContent = h.name;
-        card.querySelector('.hc-host').textContent = h.host;
-        card.onclick = function () { selectHost(h, card); };
-        wrap.appendChild(card);
-      });
-      // 還原上次
+      // 還原上次輸入
       if (info.saved && info.saved.code) $('code').value = info.saved.code;
       if (info.saved && info.saved.stuSN) $('stuSN').value = info.saved.stuSN;
-      // 預選上次 host，否則第一個
-      var savedHost = info.saved && info.saved.host;
-      var pick = null;
-      if (savedHost) pick = info.hosts.filter(function (h) { return h.host === savedHost; })[0];
-      if (!pick) pick = info.hosts[0];
-      if (pick) {
-        var idx = info.hosts.indexOf(pick);
-        selectHost(pick, wrap.children[idx]);
-      }
       if (info.machine) {
         $('machine').textContent = '裝置 ' + (info.machine.computerName || '') + ' · ' + (info.machine.macId || '');
       }
     });
   }
 
-  function selectHost(h, cardEl) {
-    state.host = h.host;
-    $('hostCards').querySelectorAll('.hostcard').forEach(function (c) { c.classList.remove('sel'); });
-    if (cardEl) cardEl.classList.add('sel');
-    $('advHost').value = ''; // 選了預設就清掉自訂
+  // --- login：自動試所有補習班 ---------------------------------------------
+  function proceed(name, host) {
+    state.name = name || '';
+    $('who').textContent = name ? ('哈囉，' + name) : '登入成功';
+    toast('登入成功', 'ok');
+    setStep(2);
+    loadClasses();
   }
 
-  // --- login -----------------------------------------------------------------
   $('btnLogin').onclick = function () {
-    var adv = $('advHost').value.trim();
-    var host = adv || state.host;
-    if (!host) return toast('請先選一間補習班', 'err');
     var code = $('code').value.trim();
     var stuSN = $('stuSN').value.trim();
     var stuPass = $('stuPass').value;
-    if (!code || !stuSN || !stuPass) return toast('請填 Code、學號、密碼', 'err');
+    if (!code || !stuSN || !stuPass) return toast('請填代碼、學號、密碼', 'err');
+    state.code = code; window.__code = code;
 
-    state.host = host; state.code = code; window.__code = code;
-    busy(true, '登入中…');
-    API.login({ host: host, https: state.https, code: code, stuSN: stuSN, stuPass: stuPass })
+    busy(true, '登入中…（自動尋找補習班）');
+    API.loginAuto({ code: code, stuSN: stuSN, stuPass: stuPass })
       .then(function (r) {
-        busy(false);
-        if (r.ok) {
-          state.name = r.name || '';
-          $('who').textContent = r.name ? ('哈囉，' + r.name) : '登入成功';
-          toast('登入成功', 'ok');
-          setStep(2);
-          loadClasses();
-        } else {
-          toast('登入失敗：' + (humanError(r)), 'err');
+        var hits = r.hits || [];
+        if (hits.length === 0) {
+          busy(false);
+          toast('登入失敗：代碼/學號/密碼有誤，或不屬於任何已知補習班', 'err');
+          return;
         }
+        if (hits.length === 1) {
+          // 唯一命中 → 直接選定
+          return API.selectHost({ host: hits[0].host, code: code, stuSN: stuSN })
+            .then(function () { busy(false); proceed(hits[0].name, hits[0].host); });
+        }
+        // 多間命中 → 彈窗讓使用者選
+        busy(false);
+        showPicker(hits, code, stuSN);
       })
       .catch(function (e) { busy(false); toast('登入錯誤：' + e.message, 'err'); });
   };
 
-  function humanError(r) {
-    if (r && r.msg) return r.msg;
-    if (r && r.status >= 500) return '伺服器錯誤（多半是補習班選錯）';
-    return '帳號或密碼有誤';
+  // 多補習班命中時的選擇彈窗
+  function showPicker(hits, code, stuSN) {
+    var mask = $('picker');
+    var list = $('pickerList');
+    list.innerHTML = '';
+    hits.forEach(function (h) {
+      var b = document.createElement('button');
+      b.className = 'listitem';
+      b.innerHTML = '<div class="hc-name"></div><div class="hc-host"></div>';
+      b.querySelector('.hc-name').textContent = (h.label || h.key) + (h.name ? '　(' + h.name + ')' : '');
+      b.querySelector('.hc-host').textContent = h.host;
+      b.onclick = function () {
+        mask.style.display = 'none';
+        busy(true, '進入中…');
+        API.selectHost({ host: h.host, code: code, stuSN: stuSN })
+          .then(function () { busy(false); proceed(h.name, h.host); })
+          .catch(function (e) { busy(false); toast('選擇失敗：' + e.message, 'err'); });
+      };
+      list.appendChild(b);
+    });
+    mask.style.display = 'flex';
   }
+  if ($('pickerCancel')) $('pickerCancel').onclick = function () { $('picker').style.display = 'none'; };
 
   $('btnLogout').onclick = function () {
     API.logout().then(function () {

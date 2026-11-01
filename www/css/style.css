@@ -135,3 +135,11 @@ html, body {
   .field2 { grid-template-columns: 1fr; }
   .itemlist { max-height: 240px; }
 }
+
+/* 登入說明 + 補習班選擇彈窗 */
+.sublead { color: var(--muted); font-size: 13px; margin: 0 0 14px; line-height: 1.5; }
+.modal { display: none; position: fixed; inset: 0; background: rgba(8,10,14,.72); z-index: 70; align-items: center; justify-content: center; }
+.modal-box { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; width: min(420px, 90vw); max-height: 80vh; overflow-y: auto; }
+.modal-title { font-size: 16px; font-weight: 600; margin-bottom: 14px; }
+.modal-box .listitem .hc-name { font-weight: 600; margin-bottom: 3px; }
+.modal-box .listitem .hc-host { color: var(--muted); font-size: 12px; font-family: ui-monospace, monospace; }

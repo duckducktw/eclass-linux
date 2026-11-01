@@ -58,17 +58,39 @@
       return Promise.resolve({ ok: true, host: host });
     },
 
-    login: function (p) {
-      client = new EclassCore({ httpGet: httpGet, host: p.host, https: p.https !== false });
-      lsSet('host', p.host);
-      return client.checkMac({
-        code: p.code, stuSN: p.stuSN, stuPass: p.stuPass,
-        macId: machine.macId, computerName: machine.computerName, key: '',
-      }).then(function (r) {
-        var parsed = parse.parseCheckMac(r.body);
-        if (parsed.ok) { lsSet('code', p.code); lsSet('stuSN', p.stuSN); }
-        return { ok: parsed.ok, name: parsed.name, msg: parsed.msg, status: r.status, raw: r.body };
+    // 自動登入：並行對所有已知補習班試 CheckMac，回通過清單。
+    loginAuto: function (p) {
+      var candidates = {}; // host → EclassCore
+      var keys = Object.keys(KNOWN_HOSTS);
+      function withTimeout(promise, ms) {
+        return Promise.race([promise, new Promise(function (res) { setTimeout(function () { res(null); }, ms); })]);
+      }
+      var jobs = keys.map(function (key) {
+        var host = KNOWN_HOSTS[key];
+        var c = new EclassCore({ httpGet: httpGet, host: host, https: true });
+        var job = c.checkMac({
+          code: p.code, stuSN: p.stuSN, stuPass: p.stuPass,
+          macId: machine.macId, computerName: machine.computerName, key: '',
+        }).then(function (r) {
+          var parsed = parse.parseCheckMac(r.body);
+          if (parsed.ok) { candidates[host] = c; return { key: key, host: host, name: parsed.name || '', label: FRIENDLY[key] || key }; }
+          return null;
+        }).catch(function () { return null; });
+        return withTimeout(job, 9500);
       });
+      return Promise.all(jobs).then(function (res) {
+        window.__autoCandidates = candidates;
+        return { hits: res.filter(Boolean) };
+      });
+    },
+
+    // 從通過的補習班選定一間 → 綁定為當前 client
+    selectHost: function (p) {
+      var c = (window.__autoCandidates || {})[p.host];
+      if (!c) return Promise.reject(new Error('候選補習班已失效，請重新登入'));
+      client = c;
+      lsSet('host', p.host); lsSet('code', p.code); lsSet('stuSN', p.stuSN);
+      return Promise.resolve({ ok: true, host: p.host });
     },
 
     classList1: function () {

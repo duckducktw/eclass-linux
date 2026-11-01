@@ -48,20 +48,21 @@
 
     connect: function (host, https) { return E.connect(host, https); },
 
-    login: function (p) {
-      return E.connect(p.host, p.https !== false).then(function () {
-        return E.checkMac({
-          code: p.code, stuSN: p.stuSN, stuPass: p.stuPass,
-          macId: machine.macId, computerName: machine.computerName,
+    // 自動登入：並行試所有補習班，回 { hits:[{key,host,name}] }
+    loginAuto: function (p) {
+      return E.loginAuto({ code: p.code, stuSN: p.stuSN, stuPass: p.stuPass })
+        .then(function (r) {
+          var hits = (r.hits || []).map(function (h) {
+            return { key: h.key, host: h.host, name: h.name, label: FRIENDLY[h.key] || h.key };
+          });
+          return { hits: hits };
         });
-      }).then(function (r) {
-        return {
-          ok: r.parsed && r.parsed.ok,
-          name: r.parsed && r.parsed.name,
-          msg: r.parsed && r.parsed.msg,
-          status: r.status, raw: r.raw,
-        };
-      });
+    },
+
+    // 從通過的補習班選定一間 → 綁定為當前 client
+    selectHost: function (p) {
+      window.__code = p.code;
+      return E.selectHost({ host: p.host, code: p.code, stuSN: p.stuSN });
     },
 
     classList1: function () {

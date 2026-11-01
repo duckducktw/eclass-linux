@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('eclass', {
   bootInfo: () => ipcRenderer.invoke('app:bootInfo'),
   connect: (host, https) => ipcRenderer.invoke('api:connect', { host, https }),
   checkMac: (p) => ipcRenderer.invoke('api:checkMac', p),
+  loginAuto: (p) => ipcRenderer.invoke('api:loginAuto', p),
+  selectHost: (p) => ipcRenderer.invoke('api:selectHost', p),
   classList1: (code) => ipcRenderer.invoke('api:classList1', code),
   classList2: (code) => ipcRenderer.invoke('api:classList2', code),
   movieList: (code, movieId, classId) =>
