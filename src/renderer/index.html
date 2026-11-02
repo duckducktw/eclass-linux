@@ -42,25 +42,37 @@
 
     <!-- STEP 2 課程 -->
     <section id="stepBrowse" class="step">
-      <div class="step-head"><span class="num">2</span> 選課程 → 單元 → 分段</div>
-      <div class="browse">
-        <div class="pane">
-          <div class="pane-title">課程</div>
-          <div id="classList" class="itemlist"></div>
+      <!-- 2a 課程頁 -->
+      <div id="pageClasses" class="subpage active">
+        <div class="step-head"><span class="num">2</span> 選擇課程</div>
+        <div id="classList" class="itemlist big"></div>
+      </div>
+      <!-- 2b 單元頁 -->
+      <div id="pageUnits" class="subpage">
+        <div class="nav-head">
+          <button id="backToClasses" class="ghost sm back">‹ 課程</button>
+          <div id="crumbClass" class="crumb"></div>
         </div>
-        <div class="pane">
-          <div class="pane-title">單元</div>
-          <div id="unitList" class="itemlist"><div class="empty">先選左邊課程</div></div>
+        <div class="step-head"><span class="num">2</span> 選擇單元</div>
+        <div id="unitList" class="itemlist big"></div>
+      </div>
+      <!-- 2c 分段頁 -->
+      <div id="pageSegs" class="subpage">
+        <div class="nav-head">
+          <button id="backToUnits" class="ghost sm back">‹ 單元</button>
+          <div id="crumbUnit" class="crumb"></div>
         </div>
-        <div class="pane">
-          <div class="pane-title">分段（點擊播放）</div>
-          <div id="segList" class="itemlist"><div class="empty">先選單元</div></div>
-        </div>
+        <div class="step-head"><span class="num">2</span> 選擇分段（點播放）</div>
+        <div id="segList" class="itemlist big"></div>
       </div>
     </section>
 
     <!-- STEP 3 播放 -->
     <section id="stepPlay" class="step">
+      <div class="nav-head">
+        <button id="backToSegs" class="ghost sm back">‹ 分段</button>
+        <div id="crumbSeg" class="crumb"></div>
+      </div>
       <div class="step-head"><span class="num">3</span> 播放</div>
       <div class="card">
         <video id="player" class="player" controls playsinline webkit-playsinline></video>

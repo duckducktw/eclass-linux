@@ -18,11 +18,11 @@
   var state = { hosts: [], host: null, https: true, code: '', name: '' };
 
   function setStep(n) {
-    // 顯示到第 n 步（1=登入 2=課程 3=播放），之後的步驟隱藏
+    // 一頁一頁：只顯示當前步（1=登入 2=瀏覽 3=播放）
     ['stepLogin', 'stepBrowse', 'stepPlay'].forEach(function (id, i) {
       var el = $(id);
       if (!el) return;
-      el.classList.toggle('active', i + 1 <= n);
+      el.classList.toggle('active', i + 1 === n);
     });
   }
 
@@ -121,7 +121,22 @@
     });
   };
 
-  // --- 科目 → 單元 → 分段 (全自動鏈) ----------------------------------------
+  // --- 一頁一頁導航：課程 → 單元 → 分段 --------------------------------------
+  function showPage(id) {
+    ['pageClasses', 'pageUnits', 'pageSegs'].forEach(function (p) {
+      var el = $(p); if (el) el.classList.toggle('active', p === id);
+    });
+    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); }
+  }
+
+  // 返回鍵
+  if ($('backToClasses')) $('backToClasses').onclick = function () { showPage('pageClasses'); };
+  if ($('backToUnits')) $('backToUnits').onclick = function () { showPage('pageUnits'); };
+  if ($('backToSegs')) $('backToSegs').onclick = function () {
+    var v = $('player'); if (v) { try { v.pause(); } catch (e) {} v.removeAttribute('src'); v.load(); }
+    setStep(2); showPage('pageSegs');
+  };
+
   function loadClasses() {
     busy(true, '載入課程…');
     API.classList1().then(function (rows) {
@@ -136,12 +151,13 @@
         // 班級名裡的 [X] 只是課程標題標記，不代表學生不能看 —— 原版客戶端對這類班級
         // 照常開放進入。之前誤把 [X] 當停用旗標、整個班級鎖死 (disabled) 導致點不進去。
         // 一律可點；真正能不能看由段層級的「可看」狀態 + CDN 回應決定。
-        addItem(box, name, false, function (el) {
-          selectOne(box, el);
+        addItem(box, name, false, function () {
+          $('crumbClass').textContent = name;
           loadUnits(groupId);
-          $('unitList').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          showPage('pageUnits');
         });
       });
+      showPage('pageClasses');
     }).catch(function (e) { busy(false); toast('載入課程失敗：' + e.message, 'err'); });
   }
 
@@ -154,10 +170,10 @@
       rows.forEach(function (row) {
         var c = cols(row); // 單元名,GroupID,MovieID,段數
         var name = c[0], movieId = c[2], segs = c[3];
-        addItem(box, name + (segs ? '  · ' + segs + ' 段' : ''), false, function (el) {
-          selectOne(box, el);
+        addItem(box, name + (segs ? '  · ' + segs + ' 段' : ''), false, function () {
+          $('crumbUnit').textContent = name;
           loadSegs(movieId, groupId);
-          $('segList').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          showPage('pageSegs');
         });
       });
     }).catch(function (e) { toast('載入單元失敗：' + e.message, 'err'); });
@@ -183,7 +199,7 @@
     }).catch(function (e) { toast('載入分段失敗：' + e.message, 'err'); });
   }
 
-  // 扣點狀態列：查 CheckPoint → 已開通顯示綠標；需扣點顯示「扣點補課」按鈕。
+  // 扣點狀態列：純提示，不擋播放。扣點完全是「非必要」選項——不扣一樣能看。
   function renderPointBar(box, movieId, groupId) {
     if (!API.checkPoint) return;
     var bar = document.createElement('div');
@@ -193,47 +209,50 @@
     API.checkPoint(movieId, groupId).then(function (r) {
       if (r.opened) {
         bar.className = 'point-bar opened';
-        bar.textContent = '✓ 本課已開通（三天觀看期內，免再扣點）';
+        bar.textContent = '✓ 本課已在三天觀看期內（已登記補課）';
         return;
       }
       if (r.needPoint) {
-        bar.className = 'point-bar need';
+        // 未登記補課。影片「照樣能直接播放」，扣點只是把它登記成正式補課紀錄（非必要）。
+        bar.className = 'point-bar info';
         bar.innerHTML = '';
         var txt = document.createElement('span');
-        txt.textContent = '本課尚未開通。補課需扣 1 點（扣後三天內可重複觀看）。';
+        txt.className = 'pb-txt';
+        txt.textContent = '可直接播放。若要登記為正式補課紀錄（選用），可扣 1 點。';
         var btn = document.createElement('button');
-        btn.className = 'point-btn';
-        btn.textContent = '扣點補課（扣 1 點）';
+        btn.className = 'point-btn ghost';
+        btn.textContent = '登記補課（選用，扣 1 點）';
         btn.onclick = function () { doDeduct(bar, btn, movieId, groupId); };
         bar.appendChild(txt); bar.appendChild(btn);
         return;
       }
-      bar.className = 'point-bar';
-      bar.textContent = '開通狀態未知（伺服器回：' + r.raw + '）';
-    }).catch(function (e) { bar.textContent = '查開通狀態失敗：' + e.message; });
+      // 未知狀態也不擋，直接隱藏這條（不影響播放）
+      bar.style.display = 'none';
+    }).catch(function () { bar.style.display = 'none'; });
   }
 
   function doDeduct(bar, btn, movieId, groupId) {
-    if (!window.confirm('確定要補這堂課？會扣 1 點，扣後三天內可重複觀看。')) return;
-    btn.disabled = true; btn.textContent = '扣點中…';
+    if (!window.confirm('要把這堂登記為正式補課紀錄嗎？這會扣 1 點。\n（不登記也能直接播放，這一步是選用的）')) return;
+    btn.disabled = true; btn.textContent = '登記中…';
     API.deductPoint(movieId, groupId, '0').then(function (r) {
       if (r.ok) {
         bar.className = 'point-bar opened';
-        bar.textContent = '✓ 已扣點補課成功，本課三天內可觀看';
-        toast('扣點成功', 'ok');
+        bar.textContent = '✓ 已登記補課，本課三天內列入正式紀錄';
+        toast('已登記補課', 'ok');
       } else {
-        btn.disabled = false; btn.textContent = '扣點補課（扣 1 點）';
-        toast('扣點失敗（伺服器回：' + r.raw + '）', 'err');
+        btn.disabled = false; btn.textContent = '登記補課（選用，扣 1 點）';
+        toast('登記失敗（伺服器回：' + r.raw + '）', 'err');
       }
     }).catch(function (e) {
-      btn.disabled = false; btn.textContent = '扣點補課（扣 1 點）';
-      toast('扣點錯誤：' + e.message, 'err');
+      btn.disabled = false; btn.textContent = '登記補課（選用，扣 1 點）';
+      toast('登記錯誤：' + e.message, 'err');
     });
   }
 
   // --- 播放 ------------------------------------------------------------------
   function play(segId, groupId, name) {
     setStep(3);
+    if ($('crumbSeg')) $('crumbSeg').textContent = name || '';
     busy(true, '取得影片…');
     $('stepPlay').scrollIntoView({ behavior: 'smooth' });
     API.getMovieUrl(segId, groupId).then(function (r) {

@@ -92,11 +92,19 @@ html, body {
 .ghost:hover { color: var(--fg); border-color: var(--accent2); }
 .ghost.sm { padding: 6px 12px; font-size: 13px; }
 
-/* browse: 3 panes */
+/* browse: 一頁一頁子頁 */
+.subpage { display: none; animation: fade .2s ease; }
+.subpage.active { display: block; }
+.nav-head { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; }
+.ghost.sm.back { padding: 6px 12px; font-size: 14px; }
+.crumb { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .browse { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
 .pane { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; min-height: 120px; }
 .pane-title { font-size: 13px; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
 .itemlist { display: flex; flex-direction: column; gap: 6px; max-height: 340px; overflow-y: auto; }
+/* 一頁一頁模式：清單占滿整頁、項目放大好點 */
+.itemlist.big { max-height: none; gap: 10px; }
+.itemlist.big .listitem { padding: 16px 16px; font-size: 16px; border-radius: 12px; }
 .listitem {
   text-align: left; background: var(--card2); border: 1px solid var(--line);
   border-radius: 9px; padding: 10px 12px; color: var(--fg); cursor: pointer; font-size: 14px;
@@ -182,6 +190,9 @@ html, body {
 }
 .point-bar.opened { border-color: var(--ok); color: var(--ok); background: rgba(55,201,120,.08); }
 .point-bar.need   { border-color: var(--accent); color: var(--fg); background: rgba(79,140,255,.08); }
+/* info：扣點「非必要」的淡提示——低調、不像醒目 CTA */
+.point-bar.info { border-style: dashed; border-color: var(--line); color: var(--muted); background: transparent; font-size: 13px; }
+.point-bar.info .pb-txt { flex: 1; line-height: 1.4; }
 .point-btn {
   flex-shrink: 0; padding: 8px 16px; border: none; border-radius: 8px;
   background: var(--accent); color: #fff; font-weight: 700; cursor: pointer;
@@ -189,3 +200,6 @@ html, body {
 }
 .point-btn:hover { background: var(--accent2); }
 .point-btn:disabled { opacity: .6; cursor: default; }
+/* ghost 扣點鈕：外框淡色、非填色，弱化「快來扣點」的誘導感 */
+.point-btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); font-weight: 600; }
+.point-btn.ghost:hover { color: var(--fg); border-color: var(--accent2); background: transparent; }
