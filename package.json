@@ -1,6 +1,6 @@
 {
   "name": "eclass-linux",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Linux (Electron) reimplementation of the eClass 補習班課程播放器 client",
   "main": "src/main/main.js",
   "author": "duckducktw <dianasogooda@gmail.com>",

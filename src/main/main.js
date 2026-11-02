@@ -169,10 +169,6 @@ ipcMain.handle('api:getClassPoint', async () => {
   const r = await client.getClassPoint();
   return { status: r.status, raw: r.body };
 });
-ipcMain.handle('api:checkPoint', async (_e, { movieId, classId }) => {
-  const r = await client.checkPoint(movieId, classId);
-  return { status: r.status, raw: r.body };
-});
 
 ipcMain.handle('api:getMovieUrl', async (_e, { source, params }) => {
   const r =
