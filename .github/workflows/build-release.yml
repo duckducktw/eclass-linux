@@ -76,7 +76,7 @@ jobs:
         run: npm install
 
       - name: Sync Capacitor (core → www → android)
-        run: npx cap sync android
+        run: npm run cap:sync
 
       - name: Build debug APK
         run: cd android && chmod +x gradlew && ./gradlew assembleDebug
