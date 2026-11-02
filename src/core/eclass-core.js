@@ -184,8 +184,12 @@
     // 段ID 正規化：確保帶 .mp4 副檔名 (原生 app 行為)
     var seg = String(p.movie);
     var movieParam = /\.mp4$/i.test(seg) ? seg : seg + '.mp4';
-    // GroupID 留空 (原生實測：帶班級 ID 會讓 CDN 路徑多一層 → 404)
-    var groupId = p.groupId === undefined || p.groupId === null ? '' : p.groupId;
+    // GroupID 必須留空 (實測鐵律)：帶班級 ID → CDN 路徑多一層 /{gid}/{seg}.mp4 → 404 NoSuchKey；
+    //   留空 → /{seg}.mp4 → 206 OK。呼叫端(UI/IPC)常順手把 groupId 傳進來，這裡一律忽略，
+    //   避免再度 404。逃生閥：只有明確 forceGroupId===true 時才採用 p.groupId（保留給未來
+    //   別家補習班 host 可能需要帶 GroupID 的情況，JL 實測必須空）。
+    var groupId =
+      p.forceGroupId === true && p.groupId != null ? p.groupId : '';
     const signed = computeMovieKey({
       stuSN: this.auth.stuSN,
       movie: movieParam,

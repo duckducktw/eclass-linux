@@ -133,8 +133,10 @@
         var semi = String(row).split(';');
         var groupId = semi[1];
         var name = String(row).substring(String(row).indexOf(',') + 1);
-        var disabled = /\[X\]/.test(name);
-        addItem(box, name.replace(/\[X\]/, ' (停用)'), disabled, function (el) {
+        // 班級名裡的 [X] 只是課程標題標記，不代表學生不能看 —— 原版客戶端對這類班級
+        // 照常開放進入。之前誤把 [X] 當停用旗標、整個班級鎖死 (disabled) 導致點不進去。
+        // 一律可點；真正能不能看由段層級的「可看」狀態 + CDN 回應決定。
+        addItem(box, name, false, function (el) {
           selectOne(box, el);
           loadUnits(groupId);
           $('unitList').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
