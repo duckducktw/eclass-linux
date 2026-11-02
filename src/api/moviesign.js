@@ -5,15 +5,20 @@
  * ✅ 已完全逆向自 eclass.exe (native VB6, v1.3.4) 並用伺服器 oracle 驗證通過
  *    (makeup.jlweb.com.tw 回傳合法簽章 URL)。
  *
- * 演算法 (反組譯 0x6fad90 URL-build + hash 0x7142a0 = 標準 MD5):
+ * 演算法 (反組譯 0x6fad90 URL-build + hash 0x7142a0 = 標準 MD5；
+ *          2026-11-02 抓包原生播放 + 206 下載實證修正)：
  *
- *     Key  = md5_hex_lower( "2370" + StuSN + "4277" + Movie + Key2 )
+ *     Movie = 段ID + ".mp4"   ← 必須帶副檔名！
+ *     Key   = md5_hex_lower( "2370" + StuSN + "4277" + Movie + Key2 )   (Movie 已含 .mp4)
  *     Key2 = 任意數字字串 (原程式用 CStr(Fix(Rnd()*1000000))，伺服器不綁定其值)
+ *     GroupID = ""  (空字串；帶班級 ID 會讓 CDN 路徑多一層目錄 → 404)
  *
  *   - "2370" / "4277" 為 exe 內硬編 salt (UTF-16 字串常數 0x415440 / 0x415450)。
  *   - 中間夾的動態值是 **StuSN(學號)** (反組譯為 this 物件 vtable +0x508 呼叫)。
  *   - hash 輸入以 **ASCII/Latin1 byte** 餵入 MD5 (非 UTF-16)；輸出取 **小寫全長 hex**。
- *   - `Movie` = MovieList 回傳的「段ID」(非 ClassList2 的 MovieID)。
+ *   - `Movie` = MovieList 回傳的「段ID」+ ".mp4" (非 ClassList2 的 MovieID)。
+ *   - 最終 CDN URL = https://{host}/{段ID}.mp4?expire=&token=  (根目錄, 無 GroupID 層)。
+ *   - token 是對「含 .mp4 的路徑」簽的；若 Movie 不帶 .mp4，token 與 .mp4 路徑不符 → CDN WAF 403。
  *
  * 伺服器回應碼 (GetMovieURLCDN.aspx):
  *     -1  缺身分 (StuSN/StuPass/MacID 任一缺)

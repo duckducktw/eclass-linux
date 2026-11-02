@@ -169,16 +169,25 @@
       rows.forEach(function (row) {
         var c = cols(row); // 段序,段ID,可看
         var seq = c[0], segId = c[1], watchable = c[2] === 'True';
-        addItem(box, '第 ' + seq + ' 段' + (watchable ? '' : ' (不可看)'), !watchable, function (el) {
-          selectOne(box, el);
-          play(segId, groupId);
-        });
+        // 狀態標籤：可看(綠) / 未上架(灰)。實際「檔案在不在」會在點播/下載時由 CDN 回應確認。
+        var status = watchable
+          ? { cls: 'ok', text: '可觀看' }
+          : { cls: 'off', text: '未開放' };
+        addSegItem(box, segId, '第 ' + seq + ' 段', status, !watchable,
+          function () { // 播放
+            selectAllSeg(box, segId, 'play');
+            play(segId, groupId, '單元' + movieId + '_第' + seq + '段');
+          },
+          function () { // 下載
+            downloadSeg(segId, groupId, '單元' + movieId + '_第' + seq + '段', box);
+          }
+        );
       });
     }).catch(function (e) { toast('載入分段失敗：' + e.message, 'err'); });
   }
 
   // --- 播放 ------------------------------------------------------------------
-  function play(segId, groupId) {
+  function play(segId, groupId, name) {
     setStep(3);
     busy(true, '取得影片…');
     $('stepPlay').scrollIntoView({ behavior: 'smooth' });
@@ -189,14 +198,53 @@
         $('playHint').textContent = '取得連結成功但 CDN 上找不到影片檔，通常是老師還沒上傳這段。';
         return;
       }
-      $('playHint').textContent = '';
+      $('playHint').textContent = name ? ('播放中：' + name) : '';
       var v = $('player');
       v.src = r.url;
       v.load();
       var pr = v.play();
       if (pr && pr.catch) pr.catch(function () {});
       $('curUrl').value = r.url;
+      window.__lastSeg = { segId: segId, groupId: groupId, name: name };
     }).catch(function (e) { busy(false); toast('播放錯誤：' + e.message, 'err'); });
+  }
+
+  // --- 下載 ------------------------------------------------------------------
+  function downloadSeg(segId, groupId, name, box) {
+    if (!API.download) { toast('此平台暫不支援下載', 'err'); return; }
+    toast('準備下載…');
+    // 進度訂閱（只掛一次）
+    if (!downloadSeg._bound && API.onDownloadProgress) {
+      downloadSeg._bound = true;
+      API.onDownloadProgress(function (p) {
+        if (p.segId == null) return;
+        var bar = document.querySelector('[data-dlbar="' + p.segId + '"]');
+        if (!bar) return;
+        if (p.done) {
+          bar.textContent = '✓ 已下載';
+          bar.className = 'seg-dlbar done';
+        } else {
+          bar.textContent = '下載中 ' + Math.round(p.pct * 100) + '%'
+            + (p.total ? ' (' + (p.got / 1e6).toFixed(0) + '/' + (p.total / 1e6).toFixed(0) + 'MB)' : '');
+          bar.className = 'seg-dlbar active';
+        }
+      });
+    }
+    var bar = box && box.querySelector('[data-dlbar="' + segId + '"]');
+    if (bar) { bar.textContent = '取得連結…'; bar.className = 'seg-dlbar active'; }
+    API.download(segId, groupId, name).then(function (r) {
+      if (r.canceled) { if (bar) bar.className = 'seg-dlbar'; if (bar) bar.textContent = ''; toast('已取消'); return; }
+      if (!r.ok) {
+        if (bar) { bar.textContent = '✗ 失敗'; bar.className = 'seg-dlbar err'; }
+        toast('下載失敗：' + (r.error || ('HTTP ' + r.status)), 'err');
+        return;
+      }
+      if (bar) { bar.textContent = '✓ 已下載'; bar.className = 'seg-dlbar done'; }
+      toast('下載完成：' + r.path, 'ok');
+    }).catch(function (e) {
+      if (bar) { bar.textContent = '✗ 失敗'; bar.className = 'seg-dlbar err'; }
+      toast('下載錯誤：' + e.message, 'err');
+    });
   }
 
   // 桌面：用外部 VLC 開目前連結（Android 無此鈕）
@@ -221,6 +269,38 @@
   function selectOne(box, el) {
     box.querySelectorAll('.listitem').forEach(function (c) { c.classList.remove('sel'); });
     el.classList.add('sel');
+  }
+
+  // 分段項目：含狀態標籤 + 播放鈕 + 下載鈕 + 下載進度條
+  function addSegItem(box, segId, label, status, playDisabled, onPlay, onDownload) {
+    var row = document.createElement('div');
+    row.className = 'seg-row';
+    // 標題 + 狀態徽章
+    var head = document.createElement('div');
+    head.className = 'seg-head';
+    var t = document.createElement('span'); t.className = 'seg-title'; t.textContent = label;
+    var badge = document.createElement('span'); badge.className = 'seg-badge ' + status.cls; badge.textContent = status.text;
+    head.appendChild(t); head.appendChild(badge);
+    // 按鈕列
+    var btns = document.createElement('div');
+    btns.className = 'seg-btns';
+    var pb = document.createElement('button');
+    pb.className = 'seg-btn play'; pb.textContent = '▶ 播放'; pb.disabled = !!playDisabled;
+    if (!playDisabled) pb.onclick = onPlay;
+    var db = document.createElement('button');
+    db.className = 'seg-btn dl'; db.textContent = '⬇ 下載';
+    if (API.hasDownload) { db.onclick = onDownload; } else { db.style.display = 'none'; }
+    btns.appendChild(pb); btns.appendChild(db);
+    // 下載進度條（用 data-dlbar 綁段ID 供進度更新定位）
+    var bar = document.createElement('div');
+    bar.className = 'seg-dlbar';
+    bar.setAttribute('data-dlbar', String(segId));
+    row.appendChild(head); row.appendChild(btns); row.appendChild(bar);
+    box.appendChild(row);
+    return { row: row, bar: bar, playBtn: pb, dlBtn: db };
+  }
+  function selectAllSeg(box, segId, kind) {
+    box.querySelectorAll('.seg-row').forEach(function (c) { c.classList.remove('sel'); });
   }
 
   setStep(1);

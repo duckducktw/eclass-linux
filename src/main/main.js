@@ -4,7 +4,7 @@
  * 持有 EclassClient，透過 IPC 把 API 暴露給 renderer。
  * 安全設定：contextIsolation 開、nodeIntegration 關，renderer 只能走 preload 白名單。
  */
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 
 // ⚠️ 必須在 app ready 之前、require electron 後第一時間設定。
 // Ubuntu 24.04+ 的 AppArmor 預設擋 unprivileged user namespaces
@@ -198,4 +198,69 @@ ipcMain.handle('api:logout', async () => {
 ipcMain.handle('util:openExternal', async (_e, url) => {
   await shell.openExternal(url);
   return { ok: true };
+});
+
+// --- 下載影片 ---------------------------------------------------------------
+// 取得 CDN 連結 → 存檔對話框 → 串流下載到檔案，過程用 'dl:progress' 回報進度。
+// 支援續傳 (Range)。segId 自動帶 .mp4、GroupID 空 (走已修正的取連結邏輯)。
+const https = require('https');
+const http = require('http');
+const fs = require('fs');
+ipcMain.handle('api:download', async (_e, { segId, groupId, suggestName }) => {
+  // 1. 取連結
+  const r = await client.getMovieUrlCDN({ movie: segId, groupId: groupId });
+  const url = parse.extractMovieUrl(r.body);
+  if (!url) {
+    return { ok: false, status: r.status, error: '取不到連結（伺服器回：' + r.body + '）' };
+  }
+  // 2. 存檔對話框
+  const defName = (suggestName || ('eclass_' + segId)).replace(/[\\/:*?"<>|]/g, '_') + '.mp4';
+  const picked = await dialog.showSaveDialog(mainWindow, {
+    title: '下載影片',
+    defaultPath: path.join(app.getPath('downloads'), defName),
+    filters: [{ name: 'MP4 影片', extensions: ['mp4'] }],
+  });
+  if (picked.canceled || !picked.filePath) return { ok: false, canceled: true };
+  const outPath = picked.filePath;
+
+  // 3. 串流下載（含續傳）
+  return await new Promise((resolve) => {
+    let start = 0;
+    try { if (fs.existsSync(outPath)) start = fs.statSync(outPath).size; } catch (_) {}
+    const u = new URL(url);
+    const lib = u.protocol === 'http:' ? http : https;
+    const headers = {};
+    if (start > 0) headers['Range'] = 'bytes=' + start + '-';
+    const req = lib.request(
+      { hostname: u.hostname, port: u.port || (u.protocol === 'http:' ? 80 : 443), path: u.pathname + u.search, method: 'GET', headers },
+      (res) => {
+        if (res.statusCode !== 200 && res.statusCode !== 206) {
+          res.resume();
+          return resolve({ ok: false, status: res.statusCode, error: 'CDN 回 HTTP ' + res.statusCode });
+        }
+        const total = start + parseInt(res.headers['content-length'] || '0', 10);
+        const ws = fs.createWriteStream(outPath, { flags: start > 0 ? 'a' : 'w' });
+        let got = start, lastEmit = 0;
+        res.on('data', (c) => {
+          got += c.length;
+          const now = Date.now();
+          if (now - lastEmit > 300 && mainWindow && !mainWindow.isDestroyed()) {
+            lastEmit = now;
+            mainWindow.webContents.send('dl:progress', { segId, got, total, pct: total ? got / total : 0 });
+          }
+        });
+        res.pipe(ws);
+        ws.on('finish', () => {
+          ws.close();
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('dl:progress', { segId, got, total, pct: 1, done: true });
+          }
+          resolve({ ok: true, path: outPath, size: got });
+        });
+        ws.on('error', (e) => resolve({ ok: false, error: e.message }));
+      }
+    );
+    req.on('error', (e) => resolve({ ok: false, error: e.message }));
+    req.end();
+  });
 });

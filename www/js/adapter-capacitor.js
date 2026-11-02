@@ -125,6 +125,27 @@
       });
     },
     playExternal: function () { return Promise.reject(new Error('Android 無外部播放器')); },
+    // 下載：Android 無內建 Filesystem plugin，改把簽名後的 .mp4 連結交給系統瀏覽器/
+    // 下載管理員。CDN 回 200/206 且是 video/mp4，系統會直接存成檔案到「下載」資料夾。
+    // segId 自動帶 .mp4、GroupID 空 (走已修正的取連結邏輯)。
+    hasDownload: true,
+    download: function (segId, groupId, suggestName) {
+      return client.getMovieUrlCDN({ movie: segId, groupId: groupId }).then(function (r) {
+        var url = parse.extractMovieUrl(r.body);
+        if (!url) return { ok: false, status: r.status, error: '取不到連結（' + r.body + '）' };
+        // 交給系統下載（開新分頁 → Android WebView 轉交 DownloadManager）
+        try {
+          var Cap = root.Capacitor;
+          if (Cap && Cap.Plugins && Cap.Plugins.Browser) {
+            Cap.Plugins.Browser.open({ url: url });
+          } else {
+            window.open(url, '_system');
+          }
+        } catch (e) { window.open(url, '_blank'); }
+        return { ok: true, handedToSystem: true, url: url };
+      });
+    },
+    onDownloadProgress: function () { return function () {}; }, // 系統下載，無 app 內進度
     logout: function () {
       if (client && client.code) return client.saveStuLogout(client.code).then(function () { return { ok: true }; });
       return Promise.resolve({ ok: true });

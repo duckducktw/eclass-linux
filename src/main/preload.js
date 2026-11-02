@@ -22,6 +22,13 @@ contextBridge.exposeInMainWorld('eclass', {
     ipcRenderer.invoke('api:getMovieUrl', { source, params }),
   play: (url, fullscreen) =>
     ipcRenderer.invoke('player:play', { url, fullscreen }),
+  download: (segId, groupId, suggestName) =>
+    ipcRenderer.invoke('api:download', { segId, groupId, suggestName }),
+  onDownloadProgress: (cb) => {
+    const h = (_e, data) => cb(data);
+    ipcRenderer.on('dl:progress', h);
+    return () => ipcRenderer.removeListener('dl:progress', h);
+  },
   logout: () => ipcRenderer.invoke('api:logout'),
   openExternal: (url) => ipcRenderer.invoke('util:openExternal', url),
 });

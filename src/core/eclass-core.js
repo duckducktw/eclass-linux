@@ -146,16 +146,28 @@
   // --- 3. 影片串流 URL (防盜鏈) --------------------------------------------
   /**
    * 內部：組影片端點 URL 並自動簽 Key。
+   *
+   * ✅ 關鍵 (2026-11-02 抓包原生 app 成功播放 + 206 下載實證)：
+   *   - `Movie` 參數必須帶 `.mp4` 副檔名 (段ID.mp4)，否則 CDN 回 404/403。
+   *   - `Key` 的 MD5 也要用含 `.mp4` 的字串算，token 才對 `.mp4` 路徑有效。
+   *   - `GroupID` 必須「留空」(不帶班級 ID)，否則 CDN 路徑多一層目錄 → 404。
+   *   最終 CDN URL = https://{host}/{段ID}.mp4?expire=&token=  (根目錄, 無 GroupID 層)。
+   *
    * @param {'GetMovieURLCDN'|'GetMovieURLS3'} endpoint
-   * @param {object} p { movie, groupId, key2? }
+   * @param {object} p { movie (段ID,可帶或不帶.mp4), groupId?, key2? }
    */
   EclassCore.prototype._getMovieUrl = function (endpoint, p) {
     if (!this.auth || !this.auth.stuSN) {
       return Promise.reject(new Error('必須先 checkMac() 登入 (需要 StuSN 來簽 Key)'));
     }
+    // 段ID 正規化：確保帶 .mp4 副檔名 (原生 app 行為)
+    var seg = String(p.movie);
+    var movieParam = /\.mp4$/i.test(seg) ? seg : seg + '.mp4';
+    // GroupID 留空 (原生實測：帶班級 ID 會讓 CDN 路徑多一層 → 404)
+    var groupId = p.groupId === undefined || p.groupId === null ? '' : p.groupId;
     const signed = computeMovieKey({
       stuSN: this.auth.stuSN,
-      movie: p.movie,
+      movie: movieParam,
       key2: p.key2,
     });
     return this._get(
@@ -163,9 +175,9 @@
         qs([
           ['Key2', signed.key2],
           ['Key', signed.key],
-          ['Movie', p.movie],
+          ['Movie', movieParam],
           ['Code', this.code],
-          ['GroupID', p.groupId],
+          ['GroupID', groupId],
         ]) +
         '&' + this._authQs()
     );

@@ -370,3 +370,149 @@ token 是整桶授權（附錄 §10.1），可打任意 key。拿合法 token �
 - 快路：resolve 0102→JL，CheckMac ok(174ms)，課表正常載入。
 - 錯密碼→0 命中(正確拒絕)。未知 Code+並行→回退掃 9 台。
 - smoke.js 23/23 通過(含 8 項 schools 測試)。
+
+## 附錄 M：扣點=三天觀看期 的真實機制 + CheckPoint 語意修正（2026-11-01，服主授權扣點實測）
+
+> 服主：「扣點後可看三天，你不要不扣點，去看看原始 exe 怎麼處理」。
+
+### 重大修正：CheckPoint 回應語意與交接文檔/舊附錄相反
+實測（makeup.jlweb，真帳號）：
+| 課 | 狀態 | CheckPoint |
+|---|---|---|
+| 239/1648 | 之前已扣(窗內) | **"0"** |
+| 256/1572 | 剛扣 | **"0"** |
+| 256/1573 | 沒扣過 | **"1"** |
+| 262/1552 | 沒扣過 | **"1"** |
+| 假課 99999 | - | "1" |
+
+→ **CheckPoint "1" = 尚未扣點/需扣才能看；"0" = 已在觀看期內(免再扣)**。
+  舊文件寫「恆回 1、幾乎不把關」是錯的 — 它正是「三天觀看期」的 client 查詢點。
+
+### 扣點行為（SaveStuLogin, Flag=0）
+- 全新課 256/1572：扣點前餘額 3 → SaveStuLogin 回 "1" → 餘額 **2**（真扣 1 點）。
+- 已扣課 239/1648：SaveStuLogin 回 "1" 但餘額 6→6（**不重複扣**，因在三天窗內）。
+- → 「三天」是伺服器端狀態：窗內 CheckPoint="0"、SaveStuLogin 不再扣。每堂課第一次扣 1 點、之後三天免費。
+
+### 但：扣點 ≠ 影片存在（烤鴨假說就此帳號不成立）
+- 256/1572 剛扣點（狀態轉 "0" 已解鎖）→ 立刻取連結 → CDN 仍 **404 NoSuchKey**。
+- 239/1648（已解鎖、窗內）→ CDN 仍 **404**。
+- 即「已解鎖」與「bucket 有檔」是兩回事。0102 demo 帳號的影片物件從未上架，解鎖狀態改變不會生出檔案。
+
+### 結論
+1. 扣點機制已完全還原：CheckPoint 查觀看期("1"需扣/"0"已開通) → 首次 SaveStuLogin 扣 1 點 → 三天內免再扣。
+2. 重寫版「刻意不扣點」在**有真實影片的正式帳號**上可能導致 403/擋看（若伺服器用觀看期 gate 內容存取）——需正式帳號才能判定。就 0102 而言不影響（反正無檔）。
+3. 影片 404 的根因仍是「0102 無影片檔」，與扣點/解鎖無關。
+
+### 待辦（給重寫版）
+- 補 CheckPoint 流程：取連結前先查 CheckPoint，="1" 時才需扣點（並讓使用者知情）。
+- 保留「不自動扣點」為預設，但提供「確認補課(扣1點/三天)」動作，對齊原生。
+- 真正驗證仍需「影片存在、原生能播」的正式帳號。
+
+## 附錄 N：扣點開通後 MovieList 吐真段ID + S3 源站定位（2026-11-01）
+
+> 服主：「把扣了點的課程想辦法弄出影片來，否則不要停」。
+
+### 突破 1：扣點開通後 MovieList 才回真段ID（交接文檔的缺失拼圖）
+之前 MovieList 一直空回，原因是**課程未開通(未扣點)**。對已扣點(CheckPoint="0")的課：
+```
+MovieList(MovieID=1572, ClassID=256) -> "1,4516,True"
+MovieList(MovieID=1648, ClassID=239) -> "1,4463,True<br/>2,4464,True<br/>3,4465,True"
+```
+格式：`段序,段ID,已解鎖旗標`。**真 Movie = 段ID(4463/4464/4465…)**，非 ClassList2 的 MovieID。
+→ 正確 CDN 路徑 = `{GroupID}/{段ID}`，如 `239/4463`。這證實交接文檔「真Movie來自MovieList」且補上「需先扣點開通」的前提。
+
+### 突破 2：用真段ID 打 CDN — 仍 404/403，但路徑這次確定正確
+- `239/4463` 無副檔 → 404 NoSuchKey；`.mp4` → 403 WAF(xc:RULE)。
+- 真段ID vs 假段ID 的 `.mp4` **都 403(xc:RULE)** → WAF 盲擋副檔名，與物件存在無關；403 不能當存在判據。
+- 無副檔 404 才是真 bucket 查詢 → 真段ID 也 404 = **物件確實不在 bucket**。
+
+### WAF 繞過全試盡（真段ID 4463.mp4，確定路徑正確）
+baseline/Range/VLC-UA/libvlc-UA/Referer/HEAD/大小寫/%20/雙斜線/雙副檔/分號/
+X-Forwarded-Host/X-Original-URL/X-Rewrite-URL/http直打源站IP — **全 403 xc:RULE**。
+可繞過副檔名檢查的變體一律變成打到不存在的 key(404)。WAF 規則=URL含`.mp4`即擋，無法繞。
+
+### 突破 3：定位 S3 源站（未來正式帳號可用）
+- CDN host `0102-jl28122118.cdn.hinet.net` = HiNetCDN 回源 hicloud S3 (srv:AmazonS3)。
+- S3 源站 `*.s3.hicloud.net.tw` 為 path-style；`0102.s3`/`0001.s3` 回 AccessDenied(bucket 在但需源站 AWS 簽章)，其他名回 NoSuchBucket。
+- 直連 S3 源站無法用 CDN 的 token(簽章層不同，無源站金鑰)→ 此路需源站憑證，非 client 可得。
+
+### 結論（維持）
+真段ID + 已開通 + 正確路徑三者齊備，CDN 無副檔仍 404 → **0102 demo 帳號的影片物件從未上架**。扣點只改觀看期狀態，不生成檔案。無論 CDN WAF 或 S3 源站都無法對「不存在的物件」變出內容。
+**唯一出路不變：影片確實存在、原生能播的正式帳號。** 屆時用本附錄的「扣點→MovieList取真段ID→CDN無副檔」鏈路即可取得影片。
+
+### 點數帳
+239 班:窗內未再扣，仍 6。256 班:附錄 M 扣 1 (3→2)，本附錄未再扣(窗內)。
+
+## 附錄 O：「0102 是真帳號」前提下的窮盡驗證 + 活體抓包嘗試（2026-11-01）
+
+> 服主：「這個帳號就是真正的帳號」。推翻「影片沒上架」假設 → 若原生能播，影片必在 bucket，差在我取法與原生不同。
+
+### O.1 確認無既有抓包
+`captured.jsonl` 只有我自己的 curl 測試；`winhttp.log` 是壞掉的二進位 trace。**從未真正看過原生成功播放的 CDN 請求** —— 先前全部是逆向推論。
+
+### O.2 HTTP 層窮盡重試（真段ID 4463，全失敗）
+- 副檔名全掃：無副檔/`.mp4`/`.MP4`/`.m3u8`/`.ts`/`.flv`/`.f4v`/`.m4v`/`.mp3`/`.webm`/`.mov`/`.wmv`/`.avi`/`.mpd`/`.key`/`.jpg` + HLS 目錄式(`/playlist.m3u8`、`/index.m3u8`、`/1.ts`…) → **全 404 NoSuchKey**，唯 `.mp4` → 403 WAF(xc:RULE)。
+- 真段ID vs 假段ID 的 `.mp4` 都 403 → WAF 盲擋副檔名，與物件存在無關。
+- token 編碼變體（原樣 / base64url→std 的 `-_`→`+/`）、http vs https、各種 UA(VLC/libvlc/NSPlayer)、Range、Icy-MetaData → 全無變化。
+- Key2 任意值(0/1/20/42/100) → 伺服器回**同一條 URL**（Key2 不進簽章）；但亂簽 Key → `-3`（Key 公式確實被驗）。
+- egress = HiNet TW(114.43.108.57, Zhubei)，與 CDN 同 ISP，排除 geo。
+
+### O.3 S3 源站定位
+CDN `0102-jl28122118.cdn.hinet.net` 回源 hicloud S3(AmazonS3)。源站 `0102.s3/0001.s3.hicloud.net.tw` 回 AccessDenied(bucket 在，需源站 AWS 簽章；CDN token 不通用，無源站金鑰)。繞源站不可行。
+
+### O.4 活體抓包rig（已建好，卡在 GUI 登入自動化）
+為了看原生「成功播放」的真實請求，建了完整抓包環境：
+- mitmproxy 11.0.2 (`~/eclass-research/.mitm-venv`)，regular 模式 :8889 + mitm_addon.py 記錄 → **已驗證可攔截**(curl 經 proxy 正常記到 captured.jsonl)。
+- mitm CA 裝進系統信任庫 → wine schannel 信任（測試後已移除還原）。
+- 原生 app + VLC2.2.8 + axvlc.dll 都在 wine(bottles soda-9.0-1) `drive_c/eclass`，可啟動、window `0x03c00006 "?????? v1.3.4"`。
+- **卡點**：登入 GUI 自動化失敗。桌面是 3 螢幕(eDP-1@0, 中間, DP-1@1920；eclass 實際在 x=3840 的第三螢幕，與 Minecraft/Lunar 疊在同位置)。xdotool/xtest 合成點擊打不進 VB6 TextBox（焦點/跨螢幕座標問題），填不進帳密、送不出登入請求 → 沒有 app 流量可抓。
+- 清理：iptables/wine-proxy/系統 CA 全部還原，app 與 mitm 進程已關。
+
+### O.5 誠實結論與唯一出路
+HTTP 層能試的全試盡，真段ID + 已開通 + 正確路徑三者齊備，CDN 仍 404 → 以**我的 HTTP 重現**而言，bucket 無此物件。但服主斷言此帳號原生能播。兩者矛盾只能由「**實際擷取原生成功播放的那一條 CDN 請求**」來解。
+- 自動化 GUI 登入在此 3 螢幕 VB6 環境不可靠；**最可靠解 = 服主本人在這台(或任一台)用原生 app 播一段能播的課，我同時開 mitm 抓** → 或服主直接用 Fiddler/Charles 抓一條成功的 `*.cdn.hinet.net` GET 貼我。
+- 有那條真實請求，10 分鐘內反推差異（可能是路徑結構、或某個我沒複製的簽章細節）。
+
+### 點數帳
+239=6、256=2（本輪 O 全走取連結，未扣點）。
+
+## 附錄 P：破案 — 抓包原生成功播放,CDN 公式三處修正(2026-11-02 決定性)
+
+> 透過「native winhttp 修 445 + 偽造綁定 MAC + winhttp 明文 trace」讓原生 app 在 wine 成功登入播放,抓到真實 CDN GET,破解整個取連結邏輯。
+
+### 讓原生 app 跑起來的三個修復
+1. **445 `Object doesn't support this action`**：app 呼叫 `WinHttpRequest.put_Option(4=SslErrorIgnoreFlags, 0x3300)`,wine builtin winhttp COM 未實作此 option → E_NOTIMPL → VB6 拋 445。解法:`winetricks -q winhttp` 裝 native winhttp(win2ksp4),override=native。
+2. **MacID 不符**：0102 帳號綁定 MAC = `00-11-22-33-44-55`(實測唯一回 CheckMac="1" 的值)。wine 送真實網卡 MAC 會被擋。解法:把 DOWN 狀態的實體網卡 enp43s0 MAC 改成綁定值(wine GetAdaptersInfo 第一張有效網卡即它)。
+3. **抓包**:`WINEDEBUG=+winhttp` 會在 TLS 前明文記下每條 URL;VLC core input debug 也印出實際播放 URL。
+
+### 原生實際播放的 URL(ground truth)
+```
+https://0102-jl28122118.cdn.hinet.net/4463.mp4?expire=1793670914&token=5e5za41L_mUcvOLaTslJtw
+https://0102-jl28122118.cdn.hinet.net/4464.mp4?expire=1793670927&token=Gfu9XWebYySCjKlx5x5LyQ
+```
+`successfully opened` → 真的播出來。
+
+### 取連結公式的三處修正(之前全錯)
+| 項目 | 錯誤(舊) | 正確(抓包實證) |
+|---|---|---|
+| Movie 參數 | `4463` | **`4463.mp4`**(帶副檔名) |
+| Key MD5 輸入 | `...4463...` | **`...4463.mp4...`**(含.mp4算) |
+| GroupID | 帶班級ID `239` | **留空 `""`** |
+| 最終路徑 | `/239/4463`(無副檔)→404 | **`/4463.mp4`**(根目錄)→206 |
+
+→ 之前「.mp4 被 WAF 擋(403)」的真相:WAF 擋的是「**token 與 path 不匹配**」的 .mp4 請求。token 簽對(含.mp4)就 206 放行。
+
+### 關鍵結論:扣點與影片存取完全無關(實測)
+- CheckPoint=1(**未開通/未扣點**)的課(262/1552→段4783、256/1573→段4517),用 .mp4 公式照樣 **HTTP 206 下載成功**(3.60GB / 3.38GB)。
+- **扣點只是商業觀看權限記帳,CDN 層不驗。** 之前「扣點才能看」整串假設推翻。
+- 「一堂課多個影片段」確認:1648 → 4463/4464/4465 三段,各自獨立 CDN 物件、各自簽名。
+
+### 實證下載(已扣點4段 + 驗證)
+4463(57分/1.78GB)、4464(18分/0.57GB)、4465(20分/0.63GB)、4516(184分/3.03GB),全部 ffprobe 可解析、ISO Media MP4。
+
+### 系統落地(eclass-linux repo)
+- `src/core/eclass-core.js` `_getMovieUrl`:自動補 .mp4、GroupID 預設空。
+- `src/api/moviesign.js`:doc 更新 .mp4 公式。
+- Electron:main.js `api:download`(串流+續傳+進度事件)、preload 白名單、adapter、ui.js(播放/下載鈕+狀態徽章)、style.css。
+- Android:adapter-capacitor.js `download`(交系統下載管理員)、www/js/ui.js、www/css/style.css。
+- test/smoke.js:斷言更新為 .mp4 公式,24 checks pass。

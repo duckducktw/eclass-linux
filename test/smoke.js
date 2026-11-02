@@ -27,10 +27,14 @@ c.core._get = (p) => Promise.resolve({ status: 200, body: 'GET ' + p });
      (await c.classList2('239')).body === 'GET /ClassList2.aspx?Code=C&ClassID=239&StuSN=S1&StuPass=P&MacID=AA-BB');
   ok('movieList order (Code,MovieID,ClassID)',
      (await c.movieList('1648', '239')).body === 'GET /MovieList.aspx?Code=C&MovieID=1648&ClassID=239&StuSN=S1&StuPass=P&MacID=AA-BB');
-  // 影片端點現在自動簽 Key (moviesign): 只給 movie+groupId+固定 key2
-  const mv = await c.getMovieUrlCDN({ movie: '4463', groupId: '239', key2: '123456' });
-  ok('getMovieUrlCDN auto-signs Key + 正確參數順序',
-     /^GET \/GetMovieURLCDN\.aspx\?Key2=123456&Key=[0-9a-f]{32}&Movie=4463&Code=C&GroupID=239&StuSN=S1&StuPass=P&MacID=AA-BB$/.test(mv.body));
+  // 影片端點現在自動簽 Key (moviesign) + 自動補 .mp4 (2026-11-02 抓包實證):
+  //   Movie 一定帶 .mp4；GroupID 未指定時留空 (帶班級ID會讓CDN路徑多層→404)。
+  const mv = await c.getMovieUrlCDN({ movie: '4463', key2: '123456' });
+  ok('getMovieUrlCDN auto-signs Key + Movie帶.mp4 + GroupID空',
+     /^GET \/GetMovieURLCDN\.aspx\?Key2=123456&Key=[0-9a-f]{32}&Movie=4463\.mp4&Code=C&GroupID=&StuSN=S1&StuPass=P&MacID=AA-BB$/.test(mv.body));
+  // 若已帶 .mp4 不應重複加
+  const mv2 = await c.getMovieUrlCDN({ movie: '4463.mp4', key2: '1' });
+  ok('getMovieUrlCDN 不重複加 .mp4', /Movie=4463\.mp4&/.test(mv2.body) && !/4463\.mp4\.mp4/.test(mv2.body));
 
   console.log('[smoke] keysign deterministic + swappable');
   const f = { code: 'C', stuSN: 'S1', stuPass: 'P', macId: 'AA-BB', computerName: 'PC' };

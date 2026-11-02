@@ -85,6 +85,14 @@
         .then(function (r) { return { ok: !!r.url, url: r.url, status: r.status, raw: r.raw }; });
     },
     playExternal: function (url, fs) { return E.play(url, !!fs); },
+    // 下載影片到本機（存檔對話框 + 進度）。segId 自動帶 .mp4、GroupID 空。
+    download: function (segId, groupId, suggestName) {
+      return E.download(segId, groupId, suggestName);
+    },
+    onDownloadProgress: function (cb) {
+      return E.onDownloadProgress ? E.onDownloadProgress(cb) : function () {};
+    },
+    hasDownload: true,
     logout: function () { return E.logout(); },
     openExternal: function (url) { return E.openExternal(url); },
   };
