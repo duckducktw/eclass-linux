@@ -166,6 +166,7 @@
     API.movieList(movieId, groupId).then(function (rows) {
       box.innerHTML = '';
       if (!rows.length) { box.innerHTML = '<div class="empty">沒有分段</div>'; return; }
+      renderPointBar(box, movieId, groupId);
       rows.forEach(function (row) {
         var c = cols(row); // 段序,段ID,可看
         var seq = c[0], segId = c[1], watchable = c[2] === 'True';
@@ -178,6 +179,54 @@
         );
       });
     }).catch(function (e) { toast('載入分段失敗：' + e.message, 'err'); });
+  }
+
+  // 扣點狀態列：查 CheckPoint → 已開通顯示綠標；需扣點顯示「扣點補課」按鈕。
+  function renderPointBar(box, movieId, groupId) {
+    if (!API.checkPoint) return;
+    var bar = document.createElement('div');
+    bar.className = 'point-bar';
+    bar.textContent = '查詢開通狀態…';
+    box.appendChild(bar);
+    API.checkPoint(movieId, groupId).then(function (r) {
+      if (r.opened) {
+        bar.className = 'point-bar opened';
+        bar.textContent = '✓ 本課已開通（三天觀看期內，免再扣點）';
+        return;
+      }
+      if (r.needPoint) {
+        bar.className = 'point-bar need';
+        bar.innerHTML = '';
+        var txt = document.createElement('span');
+        txt.textContent = '本課尚未開通。補課需扣 1 點（扣後三天內可重複觀看）。';
+        var btn = document.createElement('button');
+        btn.className = 'point-btn';
+        btn.textContent = '扣點補課（扣 1 點）';
+        btn.onclick = function () { doDeduct(bar, btn, movieId, groupId); };
+        bar.appendChild(txt); bar.appendChild(btn);
+        return;
+      }
+      bar.className = 'point-bar';
+      bar.textContent = '開通狀態未知（伺服器回：' + r.raw + '）';
+    }).catch(function (e) { bar.textContent = '查開通狀態失敗：' + e.message; });
+  }
+
+  function doDeduct(bar, btn, movieId, groupId) {
+    if (!window.confirm('確定要補這堂課？會扣 1 點，扣後三天內可重複觀看。')) return;
+    btn.disabled = true; btn.textContent = '扣點中…';
+    API.deductPoint(movieId, groupId, '0').then(function (r) {
+      if (r.ok) {
+        bar.className = 'point-bar opened';
+        bar.textContent = '✓ 已扣點補課成功，本課三天內可觀看';
+        toast('扣點成功', 'ok');
+      } else {
+        btn.disabled = false; btn.textContent = '扣點補課（扣 1 點）';
+        toast('扣點失敗（伺服器回：' + r.raw + '）', 'err');
+      }
+    }).catch(function (e) {
+      btn.disabled = false; btn.textContent = '扣點補課（扣 1 點）';
+      toast('扣點錯誤：' + e.message, 'err');
+    });
   }
 
   // --- 播放 ------------------------------------------------------------------

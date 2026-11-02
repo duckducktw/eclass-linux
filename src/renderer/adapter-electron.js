@@ -85,6 +85,11 @@
         .then(function (r) { return { ok: !!r.url, url: r.url, status: r.status, raw: r.raw }; });
     },
     playExternal: function (url, fs) { return E.play(url, !!fs); },
+    // 查開通狀態：opened=已開通(三天內)、needPoint=需扣點
+    checkPoint: function (movieId, classId) { return E.checkPoint(movieId, classId); },
+    // 扣點補課（使用者主動）：扣 1 點、該課進三天觀看期
+    deductPoint: function (movieId, classId, flag) { return E.deductPoint(movieId, classId, flag); },
+    hasPointOps: true,
     // 下載影片到本機（存檔對話框 + 進度）。segId 自動帶 .mp4、GroupID 空。
     download: function (segId, groupId, suggestName) {
       return E.download(segId, groupId, suggestName);

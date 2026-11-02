@@ -89,37 +89,24 @@
 
   /**
    * 取得 { macId, computerName }。
-   * 用 @capacitor/device 的 identifier 當 seed 推固定假 MAC；取不到就用 fallback seed。
+   *
+   * MacID 寫死為 0102 帳號綁定的 MAC（00-11-22-33-44-55）。eClass 伺服器把帳號綁到
+   * 「第一次登入用的 MAC」，CheckMac 只有這組回 "1"，其餘一律回 "2"(機器不符)。
+   * 所以不論哪台 Android 都送同一組 → 伺服器永遠認得本帳號。
+   * ComputerName 用裝置型號(非綁定關鍵，純記錄)。
    * @returns {Promise<{macId:string, computerName:string}>}
    */
+  var PINNED_MAC = '00-11-22-33-44-55';
   function getMachineId() {
     var Device = root.Capacitor && root.Capacitor.Plugins && root.Capacitor.Plugins.Device;
-    var tasks = [];
-    if (Device && Device.getId) {
-      tasks.push(
-        Device.getId().then(function (r) {
-          // Capacitor 6: { identifier }；舊版: { uuid }
-          return r && (r.identifier || r.uuid);
-        }).catch(function () { return null; })
-      );
-    } else {
-      tasks.push(Promise.resolve(null));
-    }
-    if (Device && Device.getInfo) {
-      tasks.push(Device.getInfo().catch(function () { return null; }));
-    } else {
-      tasks.push(Promise.resolve(null));
-    }
-
-    return Promise.all(tasks).then(function (res) {
-      var id = res[0];
-      var info = res[1];
-      var seed = id || (info && (info.model || '') + (info.manufacturer || '')) || FALLBACK_SEED;
-      var macId = stringToFakeMac(String(seed));
+    var infoTask = (Device && Device.getInfo)
+      ? Device.getInfo().catch(function () { return null; })
+      : Promise.resolve(null);
+    return infoTask.then(function (info) {
       var computerName = info
         ? ((info.manufacturer || '') + '-' + (info.model || 'android')).replace(/\s+/g, '')
         : 'android-device';
-      return { macId: macId, computerName: computerName };
+      return { macId: PINNED_MAC, computerName: computerName };
     });
   }
 

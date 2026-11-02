@@ -125,6 +125,21 @@
       });
     },
     playExternal: function () { return Promise.reject(new Error('Android 無外部播放器')); },
+    // 查開通狀態：opened=已開通(三天內免扣)、needPoint=需扣點
+    checkPoint: function (movieId, classId) {
+      return client.checkPoint(movieId, classId).then(function (r) {
+        var v = String(r.body).trim();
+        return { status: r.status, raw: v, opened: v === '0', needPoint: v === '1' };
+      });
+    },
+    // 扣點補課（使用者主動）：扣 1 點、該課進三天觀看期
+    deductPoint: function (movieId, classId, flag) {
+      return client.saveStuLogin({ movieId: movieId, classId: classId, flag: flag }).then(function (r) {
+        var v = String(r.body).trim();
+        return { status: r.status, raw: v, ok: v === '1' };
+      });
+    },
+    hasPointOps: true,
     // 下載：Android 無內建 Filesystem plugin，改把簽名後的 .mp4 連結交給系統瀏覽器/
     // 下載管理員。CDN 回 200/206 且是 video/mp4，系統會直接存成檔案到「下載」資料夾。
     // segId 自動帶 .mp4、GroupID 空 (走已修正的取連結邏輯)。

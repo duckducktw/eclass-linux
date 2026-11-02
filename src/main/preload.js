@@ -17,9 +17,12 @@ contextBridge.exposeInMainWorld('eclass', {
   getClassWeekNote: (code, weekId) =>
     ipcRenderer.invoke('api:getClassWeekNote', { code, weekId }),
   getClassPoint: (code) => ipcRenderer.invoke('api:getClassPoint', code),
-  checkPoint: (code) => ipcRenderer.invoke('api:checkPoint', code),
+  checkPoint: (movieId, classId) =>
+    ipcRenderer.invoke('api:checkPoint', { movieId, classId }),
   getMovieUrl: (source, params) =>
     ipcRenderer.invoke('api:getMovieUrl', { source, params }),
+  deductPoint: (movieId, classId, flag) =>
+    ipcRenderer.invoke('api:deductPoint', { movieId, classId, flag }),
   play: (url, fullscreen) =>
     ipcRenderer.invoke('player:play', { url, fullscreen }),
   download: (segId, groupId, suggestName) =>

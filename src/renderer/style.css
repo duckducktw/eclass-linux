@@ -172,3 +172,20 @@ html, body {
 .seg-dlbar.done   { color: var(--ok); font-weight: 700; }
 .seg-dlbar.err    { color: var(--err); font-weight: 700; }
 .seg-dlbar:empty  { margin-top: 0; }
+
+/* --- 扣點狀態列 ------------------------------------------------------------ */
+.point-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 14px; margin: 0 0 12px; border-radius: 10px;
+  background: var(--card2); border: 1.5px solid var(--line);
+  color: var(--muted); font-size: 14px;
+}
+.point-bar.opened { border-color: var(--ok); color: var(--ok); background: rgba(55,201,120,.08); }
+.point-bar.need   { border-color: var(--accent); color: var(--fg); background: rgba(79,140,255,.08); }
+.point-btn {
+  flex-shrink: 0; padding: 8px 16px; border: none; border-radius: 8px;
+  background: var(--accent); color: #fff; font-weight: 700; cursor: pointer;
+  font-size: 14px;
+}
+.point-btn:hover { background: var(--accent2); }
+.point-btn:disabled { opacity: .6; cursor: default; }

@@ -183,6 +183,19 @@ ipcMain.handle('api:getMovieUrl', async (_e, { source, params }) => {
   return { status: r.status, url, raw: r.body };
 });
 
+// 查這堂課的開通狀態：CheckPoint 回 "0"=已開通(三天內免扣)、"1"=需扣點、其他=異常
+ipcMain.handle('api:checkPoint', async (_e, { movieId, classId }) => {
+  const r = await client.checkPoint(movieId, classId);
+  const v = String(r.body).trim();
+  return { status: r.status, raw: v, opened: v === '0', needPoint: v === '1' };
+});
+
+// 扣點補課：送 SaveStuLogin → 扣 1 點、該課進三天觀看期。使用者主動按「扣點」才呼叫。
+ipcMain.handle('api:deductPoint', async (_e, { movieId, classId, flag }) => {
+  const r = await client.saveStuLogin({ movieId, classId, flag });
+  return { status: r.status, raw: String(r.body).trim(), ok: String(r.body).trim() === '1' };
+});
+
 ipcMain.handle('player:play', async (_e, { url, fullscreen }) => {
   if (!hasVlc()) throw new Error('系統找不到 vlc，請先安裝：sudo apt install vlc');
   playInVlc(url, { fullscreen });

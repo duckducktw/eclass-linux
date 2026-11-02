@@ -106,6 +106,27 @@
     return this._get('/SaveStuLogout.aspx?Code=' + encodeURIComponent(code));
   };
 
+  /**
+   * SaveStuLogin.aspx — 扣點補課。原生按「確定補課」後送此請求，扣 1 點、
+   * 該課進入三天觀看期（CheckPoint 之後回 "0" = 已開通免再扣）。
+   * 逆向自原生：送 Code,MovieID,ClassID,Flag + 身分(StuSN/StuPass/MacID)。
+   * 實測：每堂課第一次送扣 1 點；已在三天窗內再送不重複扣（伺服器端判斷）。
+   * ⚠️ 會真的扣點，務必由使用者主動點「扣點」按鈕才呼叫。
+   * @param {object} p { movieId, classId, flag? } flag 預設 '0'（原生查到的值）
+   */
+  EclassCore.prototype.saveStuLogin = function (p) {
+    return this._get(
+      '/SaveStuLogin.aspx?' +
+        qs([
+          ['Code', this.code],
+          ['MovieID', p.movieId],
+          ['ClassID', p.classId],
+          ['Flag', p.flag != null ? p.flag : '0'],
+        ]) +
+        '&' + this._authQs()
+    );
+  };
+
   // --- 2. 科目 / 班級 / 影片列表 -------------------------------------------
   EclassCore.prototype.classList1 = function () {
     return this._get(

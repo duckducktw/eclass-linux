@@ -78,6 +78,7 @@ class EclassClient {
   getMovieUrlCDN(p) { return this.core.getMovieUrlCDN(p); }
   getMovieUrlS3(p) { return this.core.getMovieUrlS3(p); }
   saveStuLogout(code) { return this.core.saveStuLogout(code); }
+  saveStuLogin(p) { return this.core.saveStuLogin(p); }
 
   /** GetClassWeekNote.aspx — 週次講義 (此部署多半未啟用)。保留給 main.js IPC。 */
   getClassWeekNote(weekId) {

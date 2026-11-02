@@ -35,6 +35,14 @@ c.core._get = (p) => Promise.resolve({ status: 200, body: 'GET ' + p });
   // 若已帶 .mp4 不應重複加
   const mv2 = await c.getMovieUrlCDN({ movie: '4463.mp4', key2: '1' });
   ok('getMovieUrlCDN 不重複加 .mp4', /Movie=4463\.mp4&/.test(mv2.body) && !/4463\.mp4\.mp4/.test(mv2.body));
+  // SaveStuLogin 扣點端點：Code,MovieID,ClassID,Flag + 身分
+  const dl = await c.saveStuLogin({ movieId: '1648', classId: '239', flag: '0' });
+  ok('saveStuLogin 參數順序 (Code,MovieID,ClassID,Flag)+auth',
+     dl.body === 'GET /SaveStuLogin.aspx?Code=C&MovieID=1648&ClassID=239&Flag=0&StuSN=S1&StuPass=P&MacID=AA-BB');
+  // checkPoint 參數
+  const cp = await c.checkPoint('1648', '239');
+  ok('checkPoint 帶 MovieID+ClassID',
+     cp.body === 'GET /CheckPoint.aspx?Code=C&MovieID=1648&ClassID=239&StuSN=S1&StuPass=P&MacID=AA-BB');
 
   console.log('[smoke] keysign deterministic + swappable');
   const f = { code: 'C', stuSN: 'S1', stuPass: 'P', macId: 'AA-BB', computerName: 'PC' };
